@@ -45,9 +45,7 @@ public class ItemRepositoryImpl implements ItemRepository {
 
             try (ResultSet keys = statement.getGeneratedKeys()) {
                 if (keys.next()) {
-                    int id = keys.getInt(1);
-
-                    return findById(id)
+                    return findById(keys.getInt(1))
                             .orElseThrow(() ->
                                     new RuntimeException(
                                             "Failed to load created item"
@@ -165,6 +163,17 @@ public class ItemRepositoryImpl implements ItemRepository {
             int itemId,
             ItemStatus status
     ) {
+        updateStatusValue(
+                itemId,
+                status.name().toLowerCase()
+        );
+    }
+
+    @Override
+    public void updateStatusValue(
+            int itemId,
+            String status
+    ) {
         String sql = """
                 UPDATE listed_items
                 SET status = ?
@@ -175,10 +184,7 @@ public class ItemRepositoryImpl implements ItemRepository {
              PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
-            statement.setString(
-                    1,
-                    status.name().toLowerCase()
-            );
+            statement.setString(1, status);
             statement.setInt(2, itemId);
 
             int updated = statement.executeUpdate();
@@ -224,12 +230,10 @@ public class ItemRepositoryImpl implements ItemRepository {
                 rs.getString("status").toUpperCase()
         );
 
-        String createdAt = rs.getString("created_at");
-
         LocalDateTime listingDate =
-                createdAt == null
-                        ? null
-                        : LocalDateTime.parse(createdAt);
+                parseDateTime(
+                        rs.getString("created_at")
+                );
 
         return new Item(
                 rs.getInt("item_id"),
@@ -239,6 +243,16 @@ public class ItemRepositoryImpl implements ItemRepository {
                 rs.getDouble("cost_per_day"),
                 listingDate,
                 status
+        );
+    }
+
+    private LocalDateTime parseDateTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return LocalDateTime.parse(
+                value.replace(' ', 'T')
         );
     }
 }

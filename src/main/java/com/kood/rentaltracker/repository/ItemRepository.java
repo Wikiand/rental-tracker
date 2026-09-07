@@ -14,7 +14,18 @@ public interface ItemRepository {
 
     List<Item> findByOwnerId(int ownerId);
 
-    List<Item> findByOwnerIdAndStatus(int ownerId, ItemStatus status);
+    List<Item> findByOwnerIdAndStatus(
+            int ownerId,
+            ItemStatus status
+    );
 
-    void updateStatus(int itemId, ItemStatus status);
+    void updateStatus(
+            int itemId,
+            ItemStatus status
+    );
+
+    void updateStatusValue(
+            int itemId,
+            String status
+    );
 }

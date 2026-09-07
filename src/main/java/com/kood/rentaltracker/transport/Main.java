@@ -323,7 +323,8 @@ public class Main {
 
             System.out.println();
 
-            if (item.getStatus() == ItemStatus.AVAILABLE) {
+            if (item.getStatus() == ItemStatus.AVAILABLE
+                    || item.getStatus() == ItemStatus.RENTED) {
                 System.out.println("1) Delist");
             } else if (item.getStatus() == ItemStatus.UNLISTED) {
                 System.out.println("1) Relist");
@@ -334,21 +335,22 @@ public class Main {
 
             String choice = scanner.nextLine().trim();
 
-            if (choice.equals("2")) {
+            if (choice.equals("2")
+                    || choice.equalsIgnoreCase("B")) {
                 return;
             }
 
             if (choice.equals("1")) {
                 try {
-                    if (item.getStatus() == ItemStatus.AVAILABLE) {
+                    if (item.getStatus() == ItemStatus.AVAILABLE
+                            || item.getStatus() == ItemStatus.RENTED) {
+
                         itemService.changeStatus(
                                 item,
                                 ItemStatus.UNLISTED
                         );
 
-                        System.out.println(
-                                "Item delisted."
-                        );
+                        System.out.println("Item delisted.");
                         continue;
                     }
 
@@ -358,9 +360,7 @@ public class Main {
                                 ItemStatus.AVAILABLE
                         );
 
-                        System.out.println(
-                                "Item relisted."
-                        );
+                        System.out.println("Item relisted.");
                         continue;
                     }
 
