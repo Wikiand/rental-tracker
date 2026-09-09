@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ItemRepositoryImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">rental-tracker</a> &gt; <a href="index.source.html" class="el_package">com.kood.rentaltracker.repository</a> &gt; <span class="el_source">ItemRepositoryImpl.java</span></div><h1>ItemRepositoryImpl.java</h1><pre class="source lang-java linenums">
+package com.kood.rentaltracker.repository;
+
+import com.kood.rentaltracker.domain.Item;
+import com.kood.rentaltracker.domain.ItemStatus;
+import com.kood.rentaltracker.infrastructure.Database;
+import com.kood.rentaltracker.repository.exception.DatabaseExceptionMapper;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+<span class="fc" id="L19">public class ItemRepositoryImpl implements ItemRepository {</span>
+
+    @Override
+    public Item save(Item item) {
+<span class="fc" id="L23">        String sql = &quot;&quot;&quot;</span>
+                INSERT INTO listed_items
+                (owner_id, item_name, description, cost_per_day, status)
+                VALUES (?, ?, ?, ?, ?)
+                &quot;&quot;&quot;;
+
+<span class="fc" id="L29">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L30">             PreparedStatement statement = connection.prepareStatement(</span>
+                     sql,
+                     Statement.RETURN_GENERATED_KEYS)) {
+
+<span class="fc" id="L34">            statement.setInt(1, item.getOwnerId());</span>
+<span class="fc" id="L35">            statement.setString(2, item.getName());</span>
+<span class="fc" id="L36">            statement.setString(3, item.getDescription());</span>
+<span class="fc" id="L37">            statement.setDouble(4, item.getCostPerDay());</span>
+<span class="fc" id="L38">            statement.setString(5, item.getStatus().name().toLowerCase());</span>
+
+<span class="fc" id="L40">            statement.executeUpdate();</span>
+
+<span class="fc" id="L42">            try (ResultSet keys = statement.getGeneratedKeys()) {</span>
+<span class="pc bpc" id="L43" title="1 of 2 branches missed.">                if (keys.next()) {</span>
+<span class="fc" id="L44">                    return findById(keys.getInt(1))</span>
+<span class="fc" id="L45">                            .orElseThrow(() -&gt;</span>
+<span class="nc" id="L46">                                    new RuntimeException(</span>
+                                            &quot;Failed to load created item&quot;));
+                }
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">            }</span>
+
+<span class="nc" id="L51">            throw new RuntimeException(&quot;Failed to create item&quot;);</span>
+
+<span class="fc" id="L53">        } catch (SQLException e) {</span>
+<span class="fc" id="L54">            throw DatabaseExceptionMapper.map(e);</span>
+        }
+    }
+
+    @Override
+    public Optional&lt;Item&gt; findById(int id) {
+<span class="fc" id="L60">        String sql = &quot;&quot;&quot;</span>
+                SELECT item_id,
+                       owner_id,
+                       item_name,
+                       description,
+                       cost_per_day,
+                       status,
+                       created_at
+                FROM listed_items
+                WHERE item_id = ?
+                &quot;&quot;&quot;;
+
+<span class="fc" id="L72">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L73">             PreparedStatement statement = connection.prepareStatement(sql)) {</span>
+
+<span class="fc" id="L75">            statement.setInt(1, id);</span>
+
+<span class="fc" id="L77">            try (ResultSet resultSet = statement.executeQuery()) {</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">                if (!resultSet.next()) {</span>
+<span class="fc" id="L79">                    return Optional.empty();</span>
+                }
+
+<span class="fc" id="L82">                return Optional.of(mapItem(resultSet));</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            }</span>
+
+<span class="pc bpc" id="L85" title="2 of 4 branches missed.">        } catch (SQLException e) {</span>
+<span class="fc" id="L86">            throw DatabaseExceptionMapper.map(e);</span>
+        }
+    }
+
+    @Override
+    public List&lt;Item&gt; findByOwnerId(int ownerId) {
+<span class="fc" id="L92">        String sql = &quot;&quot;&quot;</span>
+                SELECT item_id,
+                       owner_id,
+                       item_name,
+                       description,
+                       cost_per_day,
+                       status,
+                       created_at
+                FROM listed_items
+                WHERE owner_id = ?
+                ORDER BY item_id
+                &quot;&quot;&quot;;
+
+<span class="fc" id="L105">        return findItems(sql, ownerId);</span>
+    }
+
+    @Override
+    public List&lt;Item&gt; findByOwnerIdAndStatus(
+            int ownerId,
+            ItemStatus status) {
+
+<span class="fc" id="L113">        String sql = &quot;&quot;&quot;</span>
+                SELECT item_id,
+                       owner_id,
+                       item_name,
+                       description,
+                       cost_per_day,
+                       status,
+                       created_at
+                FROM listed_items
+                WHERE owner_id = ?
+                  AND status = ?
+                ORDER BY item_id
+                &quot;&quot;&quot;;
+
+<span class="fc" id="L127">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L128">             PreparedStatement statement = connection.prepareStatement(sql)) {</span>
+
+<span class="fc" id="L130">            statement.setInt(1, ownerId);</span>
+<span class="fc" id="L131">            statement.setString(2, status.name().toLowerCase());</span>
+
+<span class="fc" id="L133">            List&lt;Item&gt; items = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L135">            try (ResultSet resultSet = statement.executeQuery()) {</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">                while (resultSet.next()) {</span>
+<span class="fc" id="L137">                    items.add(mapItem(resultSet));</span>
+                }
+            }
+
+<span class="fc" id="L141">            return items;</span>
+
+<span class="fc" id="L143">        } catch (SQLException e) {</span>
+<span class="fc" id="L144">            throw DatabaseExceptionMapper.map(e);</span>
+        }
+    }
+
+    @Override
+    public void updateStatus(int itemId, ItemStatus status) {
+<span class="fc" id="L150">        updateStatusValue(</span>
+                itemId,
+<span class="fc" id="L152">                status.name().toLowerCase()</span>
+        );
+<span class="fc" id="L154">    }</span>
+
+    @Override
+    public void updateStatusValue(int itemId, String status) {
+<span class="fc" id="L158">        String sql = &quot;&quot;&quot;</span>
+                UPDATE listed_items
+                SET status = ?
+                WHERE item_id = ?
+                &quot;&quot;&quot;;
+
+<span class="fc" id="L164">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L165">             PreparedStatement statement = connection.prepareStatement(sql)) {</span>
+
+<span class="fc" id="L167">            statement.setString(1, status);</span>
+<span class="fc" id="L168">            statement.setInt(2, itemId);</span>
+
+<span class="fc" id="L170">            int updatedRows = statement.executeUpdate();</span>
+
+<span class="fc bfc" id="L172" title="All 2 branches covered.">            if (updatedRows == 0) {</span>
+<span class="fc" id="L173">                throw new RuntimeException(</span>
+                        &quot;Item not found: &quot; + itemId
+                );
+            }
+
+<span class="fc" id="L178">        } catch (SQLException e) {</span>
+<span class="fc" id="L179">            throw DatabaseExceptionMapper.map(e);</span>
+<span class="fc" id="L180">        }</span>
+<span class="fc" id="L181">    }</span>
+
+    private List&lt;Item&gt; findItems(String sql, int ownerId) {
+<span class="fc" id="L184">        List&lt;Item&gt; items = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L186">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L187">             PreparedStatement statement = connection.prepareStatement(sql)) {</span>
+
+<span class="fc" id="L189">            statement.setInt(1, ownerId);</span>
+
+<span class="fc" id="L191">            try (ResultSet resultSet = statement.executeQuery()) {</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">                while (resultSet.next()) {</span>
+<span class="fc" id="L193">                    items.add(mapItem(resultSet));</span>
+                }
+            }
+
+<span class="fc" id="L197">            return items;</span>
+
+<span class="fc" id="L199">        } catch (SQLException e) {</span>
+<span class="fc" id="L200">            throw DatabaseExceptionMapper.map(e);</span>
+        }
+    }
+
+    private Item mapItem(ResultSet resultSet) throws SQLException {
+<span class="fc" id="L205">        ItemStatus status = ItemStatus.valueOf(</span>
+<span class="fc" id="L206">                resultSet.getString(&quot;status&quot;).toUpperCase()</span>
+        );
+
+<span class="fc" id="L209">        LocalDateTime listingDate = parseDateTime(</span>
+<span class="fc" id="L210">                resultSet.getString(&quot;created_at&quot;)</span>
+        );
+
+<span class="fc" id="L213">        return new Item(</span>
+<span class="fc" id="L214">                resultSet.getInt(&quot;item_id&quot;),</span>
+<span class="fc" id="L215">                resultSet.getInt(&quot;owner_id&quot;),</span>
+<span class="fc" id="L216">                resultSet.getString(&quot;item_name&quot;),</span>
+<span class="fc" id="L217">                resultSet.getString(&quot;description&quot;),</span>
+<span class="fc" id="L218">                resultSet.getDouble(&quot;cost_per_day&quot;),</span>
+                listingDate,
+                status
+        );
+    }
+
+    private LocalDateTime parseDateTime(String value) {
+<span class="pc bpc" id="L225" title="1 of 4 branches missed.">        if (value == null || value.isBlank()) {</span>
+<span class="fc" id="L226">            return null;</span>
+        }
+
+<span class="fc" id="L229">        return LocalDateTime.parse(</span>
+<span class="fc" id="L230">                value.replace(' ', 'T')</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

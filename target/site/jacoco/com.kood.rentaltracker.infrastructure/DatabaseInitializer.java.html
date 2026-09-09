@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseInitializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">rental-tracker</a> &gt; <a href="index.source.html" class="el_package">com.kood.rentaltracker.infrastructure</a> &gt; <span class="el_source">DatabaseInitializer.java</span></div><h1>DatabaseInitializer.java</h1><pre class="source lang-java linenums">package com.kood.rentaltracker.infrastructure;
+
+import com.kood.rentaltracker.repository.exception.ConstraintViolationException;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+<span class="nc" id="L9">public class DatabaseInitializer {</span>
+
+    public static void initialize() {
+<span class="fc" id="L12">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L13">             Statement statement = connection.createStatement()) {</span>
+
+<span class="fc" id="L15">            statement.executeUpdate(&quot;&quot;&quot;</span>
+                    PRAGMA foreign_keys = ON;
+
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT NOT NULL UNIQUE,
+                        password TEXT,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+
+                    CREATE TABLE IF NOT EXISTS listed_items (
+                        item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        owner_id INTEGER NOT NULL,
+                        item_name TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        cost_per_day REAL NOT NULL,
+                        status TEXT NOT NULL
+                            CHECK (status IN (
+                                'available',
+                                'rented',
+                                'unlisted'
+                            )),
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (owner_id)
+                            REFERENCES users(id)
+                    );
+
+                    CREATE TABLE IF NOT EXISTS rentals (
+                        rental_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        item_id INTEGER NOT NULL,
+                        renter_id INTEGER NOT NULL,
+                        start_time TEXT NOT NULL,
+                        end_time TEXT NOT NULL,
+                        returned_at TEXT,
+                        status TEXT NOT NULL
+                            CHECK (status IN (
+                                'active',
+                                'closed'
+                            )),
+                        FOREIGN KEY (item_id)
+                            REFERENCES listed_items(item_id),
+                        FOREIGN KEY (renter_id)
+                            REFERENCES users(id)
+                    );
+                    &quot;&quot;&quot;);
+
+<span class="fc" id="L61">        } catch (SQLException e) {</span>
+<span class="fc" id="L62">            throw new ConstraintViolationException(</span>
+                    &quot;Failed to initialize database&quot;,
+                    e
+            );
+<span class="fc" id="L66">        }</span>
+<span class="fc" id="L67">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

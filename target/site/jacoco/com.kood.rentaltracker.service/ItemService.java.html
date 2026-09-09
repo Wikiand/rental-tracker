@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ItemService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">rental-tracker</a> &gt; <a href="index.source.html" class="el_package">com.kood.rentaltracker.service</a> &gt; <span class="el_source">ItemService.java</span></div><h1>ItemService.java</h1><pre class="source lang-java linenums">package com.kood.rentaltracker.service;
+
+import com.kood.rentaltracker.domain.Item;
+import com.kood.rentaltracker.domain.ItemStatus;
+import com.kood.rentaltracker.repository.ItemRepository;
+
+import java.util.List;
+
+public class ItemService {
+
+    private final ItemRepository itemRepository;
+
+<span class="fc" id="L13">    public ItemService(ItemRepository itemRepository) {</span>
+<span class="fc" id="L14">        this.itemRepository = itemRepository;</span>
+<span class="fc" id="L15">    }</span>
+
+    public Item listItem(
+            int ownerId,
+            String name,
+            String description,
+            double costPerDay
+    ) {
+<span class="fc" id="L23">        validateItem(name, description, costPerDay);</span>
+
+<span class="fc" id="L25">        return itemRepository.save(</span>
+                new Item(
+                        0,
+                        ownerId,
+<span class="fc" id="L29">                        name.trim(),</span>
+<span class="fc" id="L30">                        description.trim(),</span>
+                        costPerDay,
+                        ItemStatus.AVAILABLE
+                )
+        );
+    }
+
+    public List&lt;Item&gt; getInventory(int ownerId) {
+<span class="fc" id="L38">        return itemRepository.findByOwnerId(ownerId);</span>
+    }
+
+    public List&lt;Item&gt; getAvailableItems(int ownerId) {
+<span class="fc" id="L42">        return itemRepository.findByOwnerIdAndStatus(</span>
+                ownerId,
+                ItemStatus.AVAILABLE
+        );
+    }
+
+    public void changeStatus(
+            Item item,
+            ItemStatus nextStatus
+    ) {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (!item.getStatus().canTransitionTo(nextStatus)) {</span>
+<span class="fc" id="L53">            throw new IllegalStateException(</span>
+                    &quot;Invalid status transition: &quot;
+<span class="fc" id="L55">                            + item.getStatus()</span>
+                            + &quot; -&gt; &quot;
+                            + nextStatus
+            );
+        }
+
+<span class="fc" id="L61">        itemRepository.updateStatus(</span>
+<span class="fc" id="L62">                item.getId(),</span>
+                nextStatus
+        );
+
+<span class="fc" id="L66">        item.setStatus(nextStatus);</span>
+<span class="fc" id="L67">    }</span>
+
+    private void validateItem(
+            String name,
+            String description,
+            double costPerDay
+    ) {
+<span class="fc bfc" id="L74" title="All 4 branches covered.">        if (name == null || name.isBlank()) {</span>
+<span class="fc" id="L75">            throw new IllegalArgumentException(</span>
+                    &quot;Item name cannot be empty.&quot;
+            );
+        }
+
+<span class="fc bfc" id="L80" title="All 4 branches covered.">        if (description == null || description.isBlank()) {</span>
+<span class="fc" id="L81">            throw new IllegalArgumentException(</span>
+                    &quot;Item description cannot be empty.&quot;
+            );
+        }
+
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        if (costPerDay &lt; 0) {</span>
+<span class="fc" id="L87">            throw new IllegalArgumentException(</span>
+                    &quot;Cost cannot be negative.&quot;
+            );
+        }
+<span class="fc" id="L91">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
