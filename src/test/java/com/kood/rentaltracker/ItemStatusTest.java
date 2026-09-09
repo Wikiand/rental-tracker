@@ -1,3 +1,4 @@
+
 package com.kood.rentaltracker;
 
 import com.kood.rentaltracker.domain.ItemStatus;
@@ -39,6 +40,24 @@ class ItemStatusTest {
         assertTrue(
                 ItemStatus.RENTED.canTransitionTo(
                         ItemStatus.AVAILABLE
+                )
+        );
+    }
+
+    @Test
+    void rentedCanBeDelisted() {
+        assertTrue(
+                ItemStatus.RENTED.canTransitionTo(
+                        ItemStatus.UNLISTED
+                )
+        );
+    }
+
+    @Test
+    void rentedCannotBeRentedAgain() {
+        assertFalse(
+                ItemStatus.RENTED.canTransitionTo(
+                        ItemStatus.RENTED
                 )
         );
     }

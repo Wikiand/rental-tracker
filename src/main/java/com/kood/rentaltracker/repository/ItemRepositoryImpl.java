@@ -1,3 +1,4 @@
+
 package com.kood.rentaltracker.repository;
 
 import com.kood.rentaltracker.domain.Item;
@@ -26,20 +27,15 @@ public class ItemRepositoryImpl implements ItemRepository {
                 """;
 
         try (Connection connection = Database.connect();
-             PreparedStatement statement =
-                     connection.prepareStatement(
-                             sql,
-                             Statement.RETURN_GENERATED_KEYS
-                     )) {
+             PreparedStatement statement = connection.prepareStatement(
+                     sql,
+                     Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setInt(1, item.getOwnerId());
             statement.setString(2, item.getName());
             statement.setString(3, item.getDescription());
             statement.setDouble(4, item.getCostPerDay());
-            statement.setString(
-                    5,
-                    item.getStatus().name().toLowerCase()
-            );
+            statement.setString(5, item.getStatus().name().toLowerCase());
 
             statement.executeUpdate();
 
@@ -48,15 +44,11 @@ public class ItemRepositoryImpl implements ItemRepository {
                     return findById(keys.getInt(1))
                             .orElseThrow(() ->
                                     new RuntimeException(
-                                            "Failed to load created item"
-                                    )
-                            );
+                                            "Failed to load created item"));
                 }
             }
 
-            throw new RuntimeException(
-                    "Failed to create item"
-            );
+            throw new RuntimeException("Failed to create item");
 
         } catch (SQLException e) {
             throw DatabaseExceptionMapper.map(e);
@@ -78,17 +70,16 @@ public class ItemRepositoryImpl implements ItemRepository {
                 """;
 
         try (Connection connection = Database.connect();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, id);
 
-            try (ResultSet rs = statement.executeQuery()) {
-                if (rs.next()) {
-                    return Optional.of(mapItem(rs));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
                 }
 
-                return Optional.empty();
+                return Optional.of(mapItem(resultSet));
             }
 
         } catch (SQLException e) {
@@ -117,8 +108,8 @@ public class ItemRepositoryImpl implements ItemRepository {
     @Override
     public List<Item> findByOwnerIdAndStatus(
             int ownerId,
-            ItemStatus status
-    ) {
+            ItemStatus status) {
+
         String sql = """
                 SELECT item_id,
                        owner_id,
@@ -134,20 +125,16 @@ public class ItemRepositoryImpl implements ItemRepository {
                 """;
 
         try (Connection connection = Database.connect();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, ownerId);
-            statement.setString(
-                    2,
-                    status.name().toLowerCase()
-            );
+            statement.setString(2, status.name().toLowerCase());
 
             List<Item> items = new ArrayList<>();
 
-            try (ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) {
-                    items.add(mapItem(rs));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    items.add(mapItem(resultSet));
                 }
             }
 
@@ -159,10 +146,7 @@ public class ItemRepositoryImpl implements ItemRepository {
     }
 
     @Override
-    public void updateStatus(
-            int itemId,
-            ItemStatus status
-    ) {
+    public void updateStatus(int itemId, ItemStatus status) {
         updateStatusValue(
                 itemId,
                 status.name().toLowerCase()
@@ -170,10 +154,7 @@ public class ItemRepositoryImpl implements ItemRepository {
     }
 
     @Override
-    public void updateStatusValue(
-            int itemId,
-            String status
-    ) {
+    public void updateStatusValue(int itemId, String status) {
         String sql = """
                 UPDATE listed_items
                 SET status = ?
@@ -181,15 +162,14 @@ public class ItemRepositoryImpl implements ItemRepository {
                 """;
 
         try (Connection connection = Database.connect();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setString(1, status);
             statement.setInt(2, itemId);
 
-            int updated = statement.executeUpdate();
+            int updatedRows = statement.executeUpdate();
 
-            if (updated == 0) {
+            if (updatedRows == 0) {
                 throw new RuntimeException(
                         "Item not found: " + itemId
                 );
@@ -200,21 +180,17 @@ public class ItemRepositoryImpl implements ItemRepository {
         }
     }
 
-    private List<Item> findItems(
-            String sql,
-            int ownerId
-    ) {
+    private List<Item> findItems(String sql, int ownerId) {
         List<Item> items = new ArrayList<>();
 
         try (Connection connection = Database.connect();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, ownerId);
 
-            try (ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) {
-                    items.add(mapItem(rs));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    items.add(mapItem(resultSet));
                 }
             }
 
@@ -225,22 +201,21 @@ public class ItemRepositoryImpl implements ItemRepository {
         }
     }
 
-    private Item mapItem(ResultSet rs) throws SQLException {
+    private Item mapItem(ResultSet resultSet) throws SQLException {
         ItemStatus status = ItemStatus.valueOf(
-                rs.getString("status").toUpperCase()
+                resultSet.getString("status").toUpperCase()
         );
 
-        LocalDateTime listingDate =
-                parseDateTime(
-                        rs.getString("created_at")
-                );
+        LocalDateTime listingDate = parseDateTime(
+                resultSet.getString("created_at")
+        );
 
         return new Item(
-                rs.getInt("item_id"),
-                rs.getInt("owner_id"),
-                rs.getString("item_name"),
-                rs.getString("description"),
-                rs.getDouble("cost_per_day"),
+                resultSet.getInt("item_id"),
+                resultSet.getInt("owner_id"),
+                resultSet.getString("item_name"),
+                resultSet.getString("description"),
+                resultSet.getDouble("cost_per_day"),
                 listingDate,
                 status
         );

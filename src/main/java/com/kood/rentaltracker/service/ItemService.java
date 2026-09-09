@@ -20,22 +20,43 @@ public class ItemService {
             String description,
             double costPerDay
     ) {
-        validateItem(name, description, costPerDay);
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Item name cannot be empty."
+            );
+        }
 
-        return itemRepository.save(
-                new Item(
-                        0,
-                        ownerId,
-                        name.trim(),
-                        description.trim(),
-                        costPerDay,
-                        ItemStatus.AVAILABLE
-                )
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Item description cannot be empty."
+            );
+        }
+
+        if (costPerDay <= 0) {
+            throw new IllegalArgumentException(
+                    "Cost per day must be greater than zero."
+            );
+        }
+
+        Item item = new Item(
+                0,
+                ownerId,
+                name.trim(),
+                description.trim(),
+                costPerDay,
+                ItemStatus.AVAILABLE
         );
+
+        return itemRepository.save(item);
     }
 
     public List<Item> getInventory(int ownerId) {
-        return itemRepository.findByOwnerId(ownerId);
+        return itemRepository.findByOwnerId(ownerId)
+                .stream()
+                .filter(item ->
+                        item.getStatus() != ItemStatus.UNLISTED
+                )
+                .toList();
     }
 
     public List<Item> getAvailableItems(int ownerId) {
@@ -64,29 +85,5 @@ public class ItemService {
         );
 
         item.setStatus(nextStatus);
-    }
-
-    private void validateItem(
-            String name,
-            String description,
-            double costPerDay
-    ) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Item name cannot be empty."
-            );
-        }
-
-        if (description == null || description.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Item description cannot be empty."
-            );
-        }
-
-        if (costPerDay < 0) {
-            throw new IllegalArgumentException(
-                    "Cost cannot be negative."
-            );
-        }
     }
 }

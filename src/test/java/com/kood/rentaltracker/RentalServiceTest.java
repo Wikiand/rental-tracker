@@ -1,3 +1,4 @@
+
 package com.kood.rentaltracker;
 
 import com.kood.rentaltracker.domain.Item;
@@ -125,6 +126,25 @@ class RentalServiceTest {
                 () -> service.recordRental(
                         availableItem(),
                         " ",
+                        3
+                )
+        );
+    }
+
+    @Test
+    void rejectsNullRenterUsername() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.recordRental(
+                        availableItem(),
+                        null,
                         3
                 )
         );

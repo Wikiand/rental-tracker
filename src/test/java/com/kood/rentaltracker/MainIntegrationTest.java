@@ -1,3 +1,4 @@
+
 package com.kood.rentaltracker;
 
 import com.kood.rentaltracker.domain.Item;
@@ -80,7 +81,11 @@ class MainIntegrationTest {
         assertTrue(output.contains("=== Rental tracker ==="));
         assertTrue(output.contains("Goodbye."));
 
-        assertItemStatus(ownerId, 1, ItemStatus.AVAILABLE);
+        assertItemStatus(
+                ownerId,
+                1,
+                ItemStatus.AVAILABLE
+        );
     }
 
     @Test
@@ -103,6 +108,397 @@ class MainIntegrationTest {
         assertTrue(output.contains("description    Test description"));
         assertTrue(output.contains("cost per day   5.0"));
         assertTrue(output.contains("status         available"));
+    }
+
+    @Test
+    void inventoryNextOnLastPageDoesNotAdvance() throws Exception {
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+        createItems(ownerId, 2);
+
+        String output = runApp("""
+                2
+                N
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Item 1"));
+        assertTrue(output.contains("Item 2"));
+        assertTrue(output.contains("=== Rental tracker ==="));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void inventorySupportsPreviousPage() throws Exception {
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+        createItems(ownerId, 6);
+
+        String output = runApp("""
+                2
+                N
+                P
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Item 6"));
+        assertTrue(output.contains("Item 1"));
+        assertTrue(output.contains("=== Rental tracker ==="));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void inventoryPreviousOnFirstPageDoesNotGoBack() throws Exception {
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+        createItems(ownerId, 2);
+
+        String output = runApp("""
+                2
+                P
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Item 1"));
+        assertTrue(output.contains("Item 2"));
+        assertTrue(output.contains("=== Rental tracker ==="));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void emptyInventoryAfterDelistingDoesNotCrashApplication()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+
+        createItem(
+                ownerId,
+                "Drill",
+                "Cordless drill",
+                8.0
+        );
+
+        String output = runApp("""
+                2
+                1
+                1
+                B
+                6
+                """);
+
+        assertTrue(
+                output.contains("Item delisted."),
+                output
+        );
+
+        assertTrue(
+                output.contains("No items found."),
+                output
+        );
+
+        assertTrue(
+                output.contains("Goodbye."),
+                output
+        );
+    }
+
+    @Test
+    void invalidInventorySelectionDoesNotCrashApplication()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+
+        createItem(
+                ownerId,
+                "Drill",
+                "Cordless drill",
+                8.0
+        );
+
+        String output = runApp("""
+                2
+                2
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Invalid option."));
+        assertTrue(output.contains("=== Rental tracker ==="));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void zeroInventorySelectionDoesNotCrashApplication()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+
+        createItem(
+                ownerId,
+                "Drill",
+                "Cordless drill",
+                8.0
+        );
+
+        String output = runApp("""
+                2
+                0
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Invalid option."));
+        assertTrue(output.contains("=== Rental tracker ==="));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void invalidInventoryDetailSelectionDoesNotCrashApplication()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+
+        createItem(
+                ownerId,
+                "Drill",
+                "Cordless drill",
+                8.0
+        );
+
+        String output = runApp("""
+                2
+                1
+                X
+                B
+                B
+                6
+                """);
+
+        assertTrue(
+                output.contains("Invalid option."),
+                output
+        );
+
+        assertTrue(
+                output.contains("=== Rental tracker ==="),
+                output
+        );
+
+        assertTrue(
+                output.contains("Goodbye."),
+                output
+        );
+    }
+
+    @Test
+    void rentalItemSelectionSupportsNextPage() throws Exception {
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+        createItems(ownerId, 6);
+
+        String output = runApp("""
+                3
+                N
+                1
+                james
+                3
+                4
+                1
+                1
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Item 6"));
+        assertTrue(output.contains("Rental recorded successfully."));
+    }
+
+    @Test
+    void invalidRentalDurationDoesNotCrashApplication()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+
+        createItem(
+                ownerId,
+                "Drill",
+                "Cordless drill",
+                8.0
+        );
+
+        String output = runApp("""
+                3
+                1
+                james
+                invalid
+                6
+                """);
+
+        assertTrue(output.contains("Invalid duration."));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void activeRentalsSupportNextPage()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+        createItems(ownerId, 6);
+
+        String output = runApp("""
+                3
+                1
+                james
+                3
+                3
+                1
+                alex
+                3
+                3
+                1
+                maria
+                3
+                3
+                1
+                peter
+                3
+                3
+                1
+                linda
+                3
+                3
+                1
+                david
+                3
+                4
+                N
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Item 6"));
+        assertTrue(output.contains("david"));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void activeRentalsSupportPreviousPage()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+        createItems(ownerId, 6);
+
+        String output = runApp("""
+                3
+                1
+                james
+                3
+                3
+                1
+                alex
+                3
+                3
+                1
+                maria
+                3
+                3
+                1
+                peter
+                3
+                3
+                1
+                linda
+                3
+                3
+                1
+                david
+                3
+                4
+                N
+                P
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Item 6"));
+        assertTrue(output.contains("Item 1"));
+        assertTrue(output.contains("Goodbye."));
+    }
+
+    @Test
+    void activeRentalsAdjustPageAfterReturn()
+            throws Exception {
+
+        database = DatabaseTestSupport.createDatabase();
+
+        int ownerId = createUser("christine");
+        createItems(ownerId, 6);
+
+        String output = runApp("""
+                3
+                1
+                james
+                3
+                3
+                1
+                alex
+                3
+                3
+                1
+                maria
+                3
+                3
+                1
+                peter
+                3
+                3
+                1
+                linda
+                3
+                3
+                1
+                david
+                3
+                4
+                N
+                1
+                1
+                B
+                B
+                6
+                """);
+
+        assertTrue(output.contains("Item 6"));
+
+        assertTrue(
+                output.contains(
+                        "Return confirmed successfully."
+                )
+        );
+
+        assertTrue(output.contains("Item 5"));
+        assertTrue(output.contains("Goodbye."));
     }
 
     @Test

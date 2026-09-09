@@ -186,6 +186,24 @@ class ItemServiceTest {
     }
 
     @Test
+    void rejectsNullName() {
+        ItemService service =
+                new ItemService(
+                        new FakeItemRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.listItem(
+                        1,
+                        null,
+                        "description",
+                        5.0
+                )
+        );
+    }
+
+    @Test
     void rejectsBlankName() {
         ItemService service =
                 new ItemService(
@@ -198,6 +216,24 @@ class ItemServiceTest {
                         1,
                         " ",
                         "description",
+                        5.0
+                )
+        );
+    }
+
+    @Test
+    void rejectsNullDescription() {
+        ItemService service =
+                new ItemService(
+                        new FakeItemRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.listItem(
+                        1,
+                        "Ladder",
+                        null,
                         5.0
                 )
         );

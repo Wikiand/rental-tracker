@@ -20,26 +20,47 @@ public class ItemService {
             String description,
             double costPerDay
     ) {
-<span class="fc" id="L23">        validateItem(name, description, costPerDay);</span>
+<span class="fc bfc" id="L23" title="All 4 branches covered.">        if (name == null || name.isBlank()) {</span>
+<span class="fc" id="L24">            throw new IllegalArgumentException(</span>
+                    &quot;Item name cannot be empty.&quot;
+            );
+        }
 
-<span class="fc" id="L25">        return itemRepository.save(</span>
-                new Item(
-                        0,
-                        ownerId,
-<span class="fc" id="L29">                        name.trim(),</span>
-<span class="fc" id="L30">                        description.trim(),</span>
-                        costPerDay,
-                        ItemStatus.AVAILABLE
-                )
+<span class="fc bfc" id="L29" title="All 4 branches covered.">        if (description == null || description.isBlank()) {</span>
+<span class="fc" id="L30">            throw new IllegalArgumentException(</span>
+                    &quot;Item description cannot be empty.&quot;
+            );
+        }
+
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (costPerDay &lt;= 0) {</span>
+<span class="fc" id="L36">            throw new IllegalArgumentException(</span>
+                    &quot;Cost per day must be greater than zero.&quot;
+            );
+        }
+
+<span class="fc" id="L41">        Item item = new Item(</span>
+                0,
+                ownerId,
+<span class="fc" id="L44">                name.trim(),</span>
+<span class="fc" id="L45">                description.trim(),</span>
+                costPerDay,
+                ItemStatus.AVAILABLE
         );
+
+<span class="fc" id="L50">        return itemRepository.save(item);</span>
     }
 
     public List&lt;Item&gt; getInventory(int ownerId) {
-<span class="fc" id="L38">        return itemRepository.findByOwnerId(ownerId);</span>
+<span class="fc" id="L54">        return itemRepository.findByOwnerId(ownerId)</span>
+<span class="fc" id="L55">                .stream()</span>
+<span class="fc" id="L56">                .filter(item -&gt;</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">                        item.getStatus() != ItemStatus.UNLISTED</span>
+                )
+<span class="fc" id="L59">                .toList();</span>
     }
 
     public List&lt;Item&gt; getAvailableItems(int ownerId) {
-<span class="fc" id="L42">        return itemRepository.findByOwnerIdAndStatus(</span>
+<span class="fc" id="L63">        return itemRepository.findByOwnerIdAndStatus(</span>
                 ownerId,
                 ItemStatus.AVAILABLE
         );
@@ -49,45 +70,21 @@ public class ItemService {
             Item item,
             ItemStatus nextStatus
     ) {
-<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (!item.getStatus().canTransitionTo(nextStatus)) {</span>
-<span class="fc" id="L53">            throw new IllegalStateException(</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (!item.getStatus().canTransitionTo(nextStatus)) {</span>
+<span class="fc" id="L74">            throw new IllegalStateException(</span>
                     &quot;Invalid status transition: &quot;
-<span class="fc" id="L55">                            + item.getStatus()</span>
+<span class="fc" id="L76">                            + item.getStatus()</span>
                             + &quot; -&gt; &quot;
                             + nextStatus
             );
         }
 
-<span class="fc" id="L61">        itemRepository.updateStatus(</span>
-<span class="fc" id="L62">                item.getId(),</span>
+<span class="fc" id="L82">        itemRepository.updateStatus(</span>
+<span class="fc" id="L83">                item.getId(),</span>
                 nextStatus
         );
 
-<span class="fc" id="L66">        item.setStatus(nextStatus);</span>
-<span class="fc" id="L67">    }</span>
-
-    private void validateItem(
-            String name,
-            String description,
-            double costPerDay
-    ) {
-<span class="fc bfc" id="L74" title="All 4 branches covered.">        if (name == null || name.isBlank()) {</span>
-<span class="fc" id="L75">            throw new IllegalArgumentException(</span>
-                    &quot;Item name cannot be empty.&quot;
-            );
-        }
-
-<span class="fc bfc" id="L80" title="All 4 branches covered.">        if (description == null || description.isBlank()) {</span>
-<span class="fc" id="L81">            throw new IllegalArgumentException(</span>
-                    &quot;Item description cannot be empty.&quot;
-            );
-        }
-
-<span class="fc bfc" id="L86" title="All 2 branches covered.">        if (costPerDay &lt; 0) {</span>
-<span class="fc" id="L87">            throw new IllegalArgumentException(</span>
-                    &quot;Cost cannot be negative.&quot;
-            );
-        }
-<span class="fc" id="L91">    }</span>
+<span class="fc" id="L87">        item.setStatus(nextStatus);</span>
+<span class="fc" id="L88">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

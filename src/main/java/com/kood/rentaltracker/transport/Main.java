@@ -18,6 +18,8 @@ import java.util.Scanner;
 
 public class Main {
 
+    private static final int PAGE_SIZE = 5;
+
     public static void main(String[] args) {
         DatabaseInitializer.initialize();
 
@@ -44,10 +46,7 @@ public class Main {
                             userRepository
                     );
 
-            User owner = getOwner(
-                    userService,
-                    scanner
-            );
+            User owner = getOwner(userService, scanner);
 
             runMenu(
                     scanner,
@@ -189,37 +188,27 @@ public class Main {
                 itemService.getInventory(owner.getId());
 
         if (items.isEmpty()) {
-            System.out.println();
-            System.out.println("=== My inventory ===");
-            System.out.println("No items found.");
+            printEmptyInventory();
             return;
         }
 
         int page = 0;
-        int pageSize = 5;
 
         while (true) {
-            int start = page * pageSize;
+            int start = page * PAGE_SIZE;
             int end = Math.min(
-                    start + pageSize,
+                    start + PAGE_SIZE,
                     items.size()
             );
 
-            printInventoryPage(
-                    items,
-                    start,
-                    end
-            );
+            printInventoryPage(items, start, end);
 
-            printPaginationOptions(
+            String choice = readPaginationChoice(
+                    scanner,
                     page,
                     end,
                     items.size()
             );
-
-            String choice = scanner.nextLine()
-                    .trim()
-                    .toUpperCase();
 
             if (choice.equals("B")) {
                 return;
@@ -237,39 +226,52 @@ public class Main {
                 continue;
             }
 
-            try {
-                int selected =
-                        Integer.parseInt(choice);
+            Integer selected = parseSelection(choice);
 
-                if (selected >= 1
-                        && selected <= end - start) {
+            if (selected != null
+                    && selected >= 1
+                    && selected <= end - start) {
 
-                    Item item =
-                            items.get(
-                                    start + selected - 1
-                            );
+                Item item = items.get(
+                        start + selected - 1
+                );
 
-                    showItemDetails(
-                            scanner,
-                            item,
-                            owner,
-                            itemService,
-                            rentalService
-                    );
+                showItemDetails(
+                        scanner,
+                        item,
+                        owner,
+                        itemService,
+                        rentalService
+                );
 
-                    items =
-                            itemService.getInventory(
-                                    owner.getId()
-                            );
+                items =
+                        itemService.getInventory(
+                                owner.getId()
+                        );
 
-                    continue;
+                if (items.isEmpty()) {
+                    printEmptyInventory();
+                    return;
                 }
-            } catch (NumberFormatException ignored) {
-                // Invalid input.
+
+                if (page * PAGE_SIZE >= items.size()) {
+                    page = Math.max(
+                            0,
+                            (items.size() - 1) / PAGE_SIZE
+                    );
+                }
+
+                continue;
             }
 
             System.out.println("Invalid option.");
         }
+    }
+
+    private static void printEmptyInventory() {
+        System.out.println();
+        System.out.println("=== My inventory ===");
+        System.out.println("No items found.");
     }
 
     private static void printInventoryPage(
@@ -287,7 +289,9 @@ public class Main {
                     "%d) %s    %s%n",
                     i - start + 1,
                     item.getName(),
-                    item.getStatus().name().toLowerCase()
+                    item.getStatus()
+                            .name()
+                            .toLowerCase()
             );
         }
     }
@@ -300,33 +304,14 @@ public class Main {
             RentalService rentalService
     ) {
         while (true) {
-            System.out.println();
-            System.out.println(
-                    "=== " + item.getName() + " ==="
-            );
-            System.out.println(
-                    "description    " + item.getDescription()
-            );
-            System.out.println(
-                    "cost per day   " + item.getCostPerDay()
-            );
-            System.out.println(
-                    "status         " +
-                    item.getStatus().name().toLowerCase()
-            );
-            System.out.println(
-                    "owner          " + owner.getUsername()
-            );
-            System.out.println(
-                    "listing date   " + item.getListingDate()
-            );
+            printItemDetails(item, owner);
 
             System.out.println();
 
             if (item.getStatus() == ItemStatus.AVAILABLE
                     || item.getStatus() == ItemStatus.RENTED) {
                 System.out.println("1) Delist");
-            } else if (item.getStatus() == ItemStatus.UNLISTED) {
+            } else {
                 System.out.println("1) Relist");
             }
 
@@ -340,42 +325,77 @@ public class Main {
                 return;
             }
 
-            if (choice.equals("1")) {
-                try {
-                    if (item.getStatus() == ItemStatus.AVAILABLE
-                            || item.getStatus() == ItemStatus.RENTED) {
-
-                        itemService.changeStatus(
-                                item,
-                                ItemStatus.UNLISTED
-                        );
-
-                        System.out.println("Item delisted.");
-                        continue;
-                    }
-
-                    if (item.getStatus() == ItemStatus.UNLISTED) {
-                        itemService.changeStatus(
-                                item,
-                                ItemStatus.AVAILABLE
-                        );
-
-                        System.out.println("Item relisted.");
-                        continue;
-                    }
-
-                    System.out.println(
-                            "This item cannot be changed here."
-                    );
-
-                } catch (IllegalStateException e) {
-                    System.out.println(e.getMessage());
-                }
-
+            if (!choice.equals("1")) {
+                System.out.println("Invalid option.");
                 continue;
             }
 
-            System.out.println("Invalid option.");
+            changeItemStatus(
+                    item,
+                    itemService
+            );
+        }
+    }
+
+    private static void printItemDetails(
+            Item item,
+            User owner
+    ) {
+        System.out.println();
+        System.out.println(
+                "=== " + item.getName() + " ==="
+        );
+        System.out.println(
+                "description    " + item.getDescription()
+        );
+        System.out.println(
+                "cost per day   " + item.getCostPerDay()
+        );
+        System.out.println(
+                "status         " +
+                item.getStatus().name().toLowerCase()
+        );
+        System.out.println(
+                "owner          " + owner.getUsername()
+        );
+        System.out.println(
+                "listing date   " + item.getListingDate()
+        );
+    }
+
+    private static void changeItemStatus(
+            Item item,
+            ItemService itemService
+    ) {
+        try {
+            if (item.getStatus() == ItemStatus.AVAILABLE
+                    || item.getStatus() == ItemStatus.RENTED) {
+
+                itemService.changeStatus(
+                        item,
+                        ItemStatus.UNLISTED
+                );
+
+                System.out.println("Item delisted.");
+                return;
+            }
+
+            if (item.getStatus() == ItemStatus.UNLISTED) {
+                itemService.changeStatus(
+                        item,
+                        ItemStatus.AVAILABLE
+                );
+
+                System.out.println("Item relisted.");
+                return;
+            }
+
+            System.out.println(
+                    "This item cannot be changed here."
+            );
+
+        } catch (IllegalStateException e) {
+            System.out.println(e.getMessage());
         }
     }
 
@@ -397,38 +417,26 @@ public class Main {
         }
 
         int page = 0;
-        int pageSize = 5;
 
         while (true) {
-            System.out.println();
-            System.out.println("=== Record a rental ===");
-
-            int start = page * pageSize;
+            int start = page * PAGE_SIZE;
             int end = Math.min(
-                    start + pageSize,
+                    start + PAGE_SIZE,
                     items.size()
             );
 
-            for (int i = start; i < end; i++) {
-                Item item = items.get(i);
+            printRentalItemPage(
+                    items,
+                    start,
+                    end
+            );
 
-                System.out.printf(
-                        "%d) %-20s %.2f/day%n",
-                        i - start + 1,
-                        item.getName(),
-                        item.getCostPerDay()
-                );
-            }
-
-            printPaginationOptions(
+            String choice = readPaginationChoice(
+                    scanner,
                     page,
                     end,
                     items.size()
             );
-
-            String choice = scanner.nextLine()
-                    .trim()
-                    .toUpperCase();
 
             if (choice.equals("B")) {
                 return;
@@ -446,31 +454,46 @@ public class Main {
                 continue;
             }
 
-            try {
-                int selected =
-                        Integer.parseInt(choice);
+            Integer selected = parseSelection(choice);
 
-                if (selected >= 1
-                        && selected <= end - start) {
+            if (selected != null
+                    && selected >= 1
+                    && selected <= end - start) {
 
-                    Item item =
-                            items.get(
-                                    start + selected - 1
-                            );
+                Item item = items.get(
+                        start + selected - 1
+                );
 
-                    createRental(
-                            scanner,
-                            item,
-                            rentalService
-                    );
+                createRental(
+                        scanner,
+                        item,
+                        rentalService
+                );
 
-                    return;
-                }
-            } catch (NumberFormatException ignored) {
-                // Invalid input.
+                return;
             }
 
             System.out.println("Invalid option.");
+        }
+    }
+
+    private static void printRentalItemPage(
+            List<Item> items,
+            int start,
+            int end
+    ) {
+        System.out.println();
+        System.out.println("=== Record a rental ===");
+
+        for (int i = start; i < end; i++) {
+            Item item = items.get(i);
+
+            System.out.printf(
+                    "%d) %-20s %.2f/day%n",
+                    i - start + 1,
+                    item.getName(),
+                    item.getCostPerDay()
+            );
         }
     }
 
@@ -533,19 +556,16 @@ public class Main {
 
         if (rentals.isEmpty()) {
             System.out.println();
-            System.out.println(
-                    "No active rentals."
-            );
+            System.out.println("No active rentals.");
             return;
         }
 
         int page = 0;
-        int pageSize = 5;
 
         while (true) {
-            int start = page * pageSize;
+            int start = page * PAGE_SIZE;
             int end = Math.min(
-                    start + pageSize,
+                    start + PAGE_SIZE,
                     rentals.size()
             );
 
@@ -556,15 +576,12 @@ public class Main {
                     rentalService
             );
 
-            printPaginationOptions(
+            String choice = readPaginationChoice(
+                    scanner,
                     page,
                     end,
                     rentals.size()
             );
-
-            String choice = scanner.nextLine()
-                    .trim()
-                    .toUpperCase();
 
             if (choice.equals("B")) {
                 return;
@@ -582,33 +599,39 @@ public class Main {
                 continue;
             }
 
-            try {
-                int selected =
-                        Integer.parseInt(choice);
+            Integer selected = parseSelection(choice);
 
-                if (selected >= 1
-                        && selected <= end - start) {
+            if (selected != null
+                    && selected >= 1
+                    && selected <= end - start) {
 
-                    Rental rental =
-                            rentals.get(
-                                    start + selected - 1
-                            );
+                Rental rental = rentals.get(
+                        start + selected - 1
+                );
 
-                    showRentalDetails(
-                            scanner,
-                            rental,
-                            rentalService
-                    );
+                showRentalDetails(
+                        scanner,
+                        rental,
+                        rentalService
+                );
 
-                    rentals =
-                            rentalService.getActiveRentals(
-                                    owner.getId()
-                            );
+                rentals =
+                        rentalService.getActiveRentals(
+                                owner.getId()
+                        );
 
-                    continue;
+                if (rentals.isEmpty()) {
+                    return;
                 }
-            } catch (NumberFormatException ignored) {
-                // Invalid input.
+
+                if (page * PAGE_SIZE >= rentals.size()) {
+                    page = Math.max(
+                            0,
+                            (rentals.size() - 1) / PAGE_SIZE
+                    );
+                }
+
+                continue;
             }
 
             System.out.println("Invalid option.");
@@ -622,18 +645,13 @@ public class Main {
             RentalService rentalService
     ) {
         System.out.println();
-        System.out.println(
-                "=== Confirm a return ==="
-        );
+        System.out.println("=== Confirm a return ===");
 
         for (int i = start; i < end; i++) {
             Rental rental = rentals.get(i);
 
-            Item item =
-                    rentalService.getItem(rental);
-
-            User renter =
-                    rentalService.getRenter(rental);
+            Item item = rentalService.getItem(rental);
+            User renter = rentalService.getRenter(rental);
 
             System.out.printf(
                     "%d) %-20s %s%n",
@@ -649,34 +667,14 @@ public class Main {
             Rental rental,
             RentalService rentalService
     ) {
-        Item item =
-                rentalService.getItem(rental);
-
-        User renter =
-                rentalService.getRenter(rental);
+        Item item = rentalService.getItem(rental);
+        User renter = rentalService.getRenter(rental);
 
         while (true) {
-            System.out.println();
-            System.out.println(
-                    "=== Rental " + rental.getId() + " ==="
-            );
-            System.out.println(
-                    "item           " + item.getName()
-            );
-            System.out.println(
-                    "renter         " + renter.getUsername()
-            );
-            System.out.println(
-                    "start time     " + rental.getStartTime()
-            );
-            System.out.println(
-                    "end time       " + rental.getEndTime()
-            );
-            System.out.println(
-                    "status         " +
-                    rental.getStatus()
-                            .name()
-                            .toLowerCase()
+            printRentalDetails(
+                    rental,
+                    item,
+                    renter
             );
 
             if (rental.getStatus() == RentalStatus.ACTIVE) {
@@ -690,7 +688,8 @@ public class Main {
 
             String choice = scanner.nextLine().trim();
 
-            if (choice.equals("2")) {
+            if (choice.equals("2")
+                    || choice.equalsIgnoreCase("B")) {
                 return;
             }
 
@@ -713,10 +712,41 @@ public class Main {
                 } catch (IllegalStateException e) {
                     System.out.println(e.getMessage());
                 }
-            } else {
-                System.out.println("Invalid option.");
+
+                continue;
             }
+
+            System.out.println("Invalid option.");
         }
+    }
+
+    private static void printRentalDetails(
+            Rental rental,
+            Item item,
+            User renter
+    ) {
+        System.out.println();
+        System.out.println(
+                "=== Rental " + rental.getId() + " ==="
+        );
+        System.out.println(
+                "item           " + item.getName()
+        );
+        System.out.println(
+                "renter         " + renter.getUsername()
+        );
+        System.out.println(
+                "start time     " + rental.getStartTime()
+        );
+        System.out.println(
+                "end time       " + rental.getEndTime()
+        );
+        System.out.println(
+                "status         " +
+                rental.getStatus()
+                        .name()
+                        .toLowerCase()
+        );
     }
 
     private static void viewRentalHistory(
@@ -737,11 +767,8 @@ public class Main {
         }
 
         for (Rental rental : rentals) {
-            Item item =
-                    rentalService.getItem(rental);
-
-            User renter =
-                    rentalService.getRenter(rental);
+            Item item = rentalService.getItem(rental);
+            User renter = rentalService.getRenter(rental);
 
             System.out.printf(
                     "Rental %d | Item %s | Renter %s | %s | Ends: %s%n",
@@ -754,6 +781,23 @@ public class Main {
                     rental.getEndTime()
             );
         }
+    }
+
+    private static String readPaginationChoice(
+            Scanner scanner,
+            int page,
+            int end,
+            int totalItems
+    ) {
+        printPaginationOptions(
+                page,
+                end,
+                totalItems
+        );
+
+        return scanner.nextLine()
+                .trim()
+                .toUpperCase();
     }
 
     private static void printPaginationOptions(
@@ -773,6 +817,14 @@ public class Main {
         }
 
         System.out.print("> ");
+    }
+
+    private static Integer parseSelection(String choice) {
+        try {
+            return Integer.parseInt(choice);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static void printMenu() {
