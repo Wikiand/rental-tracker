@@ -19,6 +19,10 @@ public interface ItemRepository {
             ItemStatus status
     );
 
+    List<Item> findAvailableExcludingOwner(
+            int ownerId
+    );
+
     void updateStatus(
             int itemId,
             ItemStatus status

@@ -9,130 +9,152 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.Optional;
 
-<span class="fc" id="L15">public class UserRepositoryImpl implements UserRepository {</span>
+<span class="fc" id="L14">public class UserRepositoryImpl implements UserRepository {</span>
 
     @Override
-    public User save(User user) {
-<span class="fc" id="L19">        String sql = &quot;&quot;&quot;</span>
-                INSERT INTO users (username, password)
+    public User save(
+            User user,
+            String passwordHash
+    ) {
+<span class="fc" id="L21">        String sql = &quot;&quot;&quot;</span>
+                INSERT INTO users (username, password_hash)
                 VALUES (?, ?)
                 &quot;&quot;&quot;;
 
-<span class="fc" id="L24">        try (Connection connection = Database.connect();</span>
-<span class="fc" id="L25">             PreparedStatement statement = connection.prepareStatement(</span>
-                     sql, Statement.RETURN_GENERATED_KEYS)) {
+<span class="fc" id="L26">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L27">             PreparedStatement statement =</span>
+<span class="fc" id="L28">                     connection.prepareStatement(</span>
+                             sql,
+                             Statement.RETURN_GENERATED_KEYS
+                     )) {
 
-<span class="fc" id="L28">            statement.setString(1, user.getUsername());</span>
-<span class="fc" id="L29">            statement.setNull(2, Types.VARCHAR);</span>
-<span class="fc" id="L30">            statement.executeUpdate();</span>
+<span class="fc" id="L33">            statement.setString(1, user.getUsername());</span>
+<span class="fc" id="L34">            statement.setString(2, passwordHash);</span>
 
-<span class="fc" id="L32">            try (ResultSet keys = statement.getGeneratedKeys()) {</span>
-<span class="pc bpc" id="L33" title="1 of 2 branches missed.">                if (keys.next()) {</span>
-<span class="fc" id="L34">                    return new User(</span>
-<span class="fc" id="L35">                            keys.getInt(1),</span>
-<span class="fc" id="L36">                            user.getUsername()</span>
+<span class="fc" id="L36">            statement.executeUpdate();</span>
+
+<span class="fc" id="L38">            try (ResultSet keys =</span>
+<span class="fc" id="L39">                         statement.getGeneratedKeys()) {</span>
+
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">                if (keys.next()) {</span>
+<span class="fc" id="L42">                    return new User(</span>
+<span class="fc" id="L43">                            keys.getInt(1),</span>
+<span class="fc" id="L44">                            user.getUsername()</span>
                     );
                 }
-<span class="pc bpc" id="L39" title="1 of 2 branches missed.">            }</span>
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">            }</span>
 
-<span class="nc" id="L41">            throw new RuntimeException(&quot;Failed to create user&quot;);</span>
+<span class="nc" id="L49">            throw new IllegalStateException(</span>
+                    &quot;Failed to create user.&quot;
+            );
 
-<span class="fc" id="L43">        } catch (SQLException e) {</span>
-<span class="fc" id="L44">            throw DatabaseExceptionMapper.map(e);</span>
+<span class="fc" id="L53">        } catch (SQLException e) {</span>
+<span class="fc" id="L54">            throw DatabaseExceptionMapper.map(e);</span>
         }
     }
 
     @Override
     public Optional&lt;User&gt; findById(int id) {
-<span class="fc" id="L50">        String sql = &quot;&quot;&quot;</span>
+<span class="fc" id="L60">        String sql = &quot;&quot;&quot;</span>
                 SELECT id, username
                 FROM users
                 WHERE id = ?
                 &quot;&quot;&quot;;
 
-<span class="fc" id="L56">        try (Connection connection = Database.connect();</span>
-<span class="fc" id="L57">             PreparedStatement statement = connection.prepareStatement(sql)) {</span>
+<span class="fc" id="L66">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L67">             PreparedStatement statement =</span>
+<span class="fc" id="L68">                     connection.prepareStatement(sql)) {</span>
 
-<span class="fc" id="L59">            statement.setInt(1, id);</span>
+<span class="fc" id="L70">            statement.setInt(1, id);</span>
 
-<span class="fc" id="L61">            try (ResultSet rs = statement.executeQuery()) {</span>
-<span class="fc bfc" id="L62" title="All 2 branches covered.">                if (rs.next()) {</span>
-<span class="fc" id="L63">                    return Optional.of(</span>
+<span class="fc" id="L72">            try (ResultSet rs =</span>
+<span class="fc" id="L73">                         statement.executeQuery()) {</span>
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">                if (rs.next()) {</span>
+<span class="fc" id="L76">                    return Optional.of(</span>
                             new User(
-<span class="fc" id="L65">                                    rs.getInt(&quot;id&quot;),</span>
-<span class="fc" id="L66">                                    rs.getString(&quot;username&quot;)</span>
+<span class="fc" id="L78">                                    rs.getInt(&quot;id&quot;),</span>
+<span class="fc" id="L79">                                    rs.getString(&quot;username&quot;)</span>
                             )
                     );
                 }
 
-<span class="fc" id="L71">                return Optional.empty();</span>
-<span class="pc bpc" id="L72" title="1 of 2 branches missed.">            }</span>
+<span class="fc" id="L84">                return Optional.empty();</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">            }</span>
 
-<span class="pc bpc" id="L74" title="2 of 4 branches missed.">        } catch (SQLException e) {</span>
-<span class="fc" id="L75">            throw DatabaseExceptionMapper.map(e);</span>
+<span class="pc bpc" id="L87" title="2 of 4 branches missed.">        } catch (SQLException e) {</span>
+<span class="fc" id="L88">            throw DatabaseExceptionMapper.map(e);</span>
         }
     }
 
     @Override
-    public Optional&lt;User&gt; findByUsername(String username) {
-<span class="fc" id="L81">        String sql = &quot;&quot;&quot;</span>
+    public Optional&lt;User&gt; findByUsername(
+            String username
+    ) {
+<span class="fc" id="L96">        String sql = &quot;&quot;&quot;</span>
                 SELECT id, username
                 FROM users
                 WHERE username = ?
                 &quot;&quot;&quot;;
 
-<span class="fc" id="L87">        try (Connection connection = Database.connect();</span>
-<span class="fc" id="L88">             PreparedStatement statement = connection.prepareStatement(sql)) {</span>
+<span class="fc" id="L102">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L103">             PreparedStatement statement =</span>
+<span class="fc" id="L104">                     connection.prepareStatement(sql)) {</span>
 
-<span class="fc" id="L90">            statement.setString(1, username);</span>
+<span class="fc" id="L106">            statement.setString(1, username);</span>
 
-<span class="fc" id="L92">            try (ResultSet rs = statement.executeQuery()) {</span>
-<span class="fc bfc" id="L93" title="All 2 branches covered.">                if (rs.next()) {</span>
-<span class="fc" id="L94">                    return Optional.of(</span>
+<span class="fc" id="L108">            try (ResultSet rs =</span>
+<span class="fc" id="L109">                         statement.executeQuery()) {</span>
+
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                if (rs.next()) {</span>
+<span class="fc" id="L112">                    return Optional.of(</span>
                             new User(
-<span class="fc" id="L96">                                    rs.getInt(&quot;id&quot;),</span>
-<span class="fc" id="L97">                                    rs.getString(&quot;username&quot;)</span>
+<span class="fc" id="L114">                                    rs.getInt(&quot;id&quot;),</span>
+<span class="fc" id="L115">                                    rs.getString(&quot;username&quot;)</span>
                             )
                     );
                 }
 
-<span class="fc" id="L102">                return Optional.empty();</span>
-<span class="pc bpc" id="L103" title="1 of 2 branches missed.">            }</span>
+<span class="fc" id="L120">                return Optional.empty();</span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">            }</span>
 
-<span class="pc bpc" id="L105" title="2 of 4 branches missed.">        } catch (SQLException e) {</span>
-<span class="fc" id="L106">            throw DatabaseExceptionMapper.map(e);</span>
+<span class="pc bpc" id="L123" title="2 of 4 branches missed.">        } catch (SQLException e) {</span>
+<span class="fc" id="L124">            throw DatabaseExceptionMapper.map(e);</span>
         }
     }
 
     @Override
-    public Optional&lt;User&gt; findOwner() {
-<span class="fc" id="L112">        String sql = &quot;&quot;&quot;</span>
-                SELECT id, username
+    public Optional&lt;String&gt; findPasswordHashByUsername(
+            String username
+    ) {
+<span class="fc" id="L132">        String sql = &quot;&quot;&quot;</span>
+                SELECT password_hash
                 FROM users
-                ORDER BY id
-                LIMIT 1
+                WHERE username = ?
                 &quot;&quot;&quot;;
 
-<span class="fc" id="L119">        try (Connection connection = Database.connect();</span>
-<span class="fc" id="L120">             PreparedStatement statement = connection.prepareStatement(sql);</span>
-<span class="fc" id="L121">             ResultSet rs = statement.executeQuery()) {</span>
+<span class="fc" id="L138">        try (Connection connection = Database.connect();</span>
+<span class="fc" id="L139">             PreparedStatement statement =</span>
+<span class="fc" id="L140">                     connection.prepareStatement(sql)) {</span>
 
-<span class="fc bfc" id="L123" title="All 2 branches covered.">            if (rs.next()) {</span>
-<span class="fc" id="L124">                return Optional.of(</span>
-                        new User(
-<span class="fc" id="L126">                                rs.getInt(&quot;id&quot;),</span>
-<span class="fc" id="L127">                                rs.getString(&quot;username&quot;)</span>
-                        )
-                );
-            }
+<span class="fc" id="L142">            statement.setString(1, username);</span>
 
-<span class="fc" id="L132">            return Optional.empty();</span>
+<span class="fc" id="L144">            try (ResultSet rs =</span>
+<span class="fc" id="L145">                         statement.executeQuery()) {</span>
 
-<span class="pc bpc" id="L134" title="3 of 6 branches missed.">        } catch (SQLException e) {</span>
-<span class="fc" id="L135">            throw DatabaseExceptionMapper.map(e);</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">                if (rs.next()) {</span>
+<span class="fc" id="L148">                    return Optional.ofNullable(</span>
+<span class="fc" id="L149">                            rs.getString(&quot;password_hash&quot;)</span>
+                    );
+                }
+
+<span class="fc" id="L153">                return Optional.empty();</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">            }</span>
+
+<span class="pc bpc" id="L156" title="2 of 4 branches missed.">        } catch (SQLException e) {</span>
+<span class="fc" id="L157">            throw DatabaseExceptionMapper.map(e);</span>
         }
     }
 }

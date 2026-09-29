@@ -1,0 +1,11 @@
+services:
+  rental-tracker:
+    build: .
+    container_name: rental-tracker
+    stdin_open: true
+    tty: true
+    volumes:
+      - rental_tracker_data:/app/data
+
+volumes:
+  rental_tracker_data:

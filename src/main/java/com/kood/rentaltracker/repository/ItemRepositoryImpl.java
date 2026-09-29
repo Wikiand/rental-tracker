@@ -106,6 +106,47 @@ public class ItemRepositoryImpl implements ItemRepository {
     }
 
     @Override
+    public List<Item> findAvailableExcludingOwner(
+            int ownerId
+    ) {
+        String sql = """
+                SELECT item_id,
+                       owner_id,
+                       item_name,
+                       description,
+                       cost_per_day,
+                       status,
+                       created_at
+                FROM listed_items
+                WHERE status = 'available'
+                  AND owner_id != ?
+                ORDER BY item_id
+                """;
+
+        try (Connection connection = Database.connect();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(1, ownerId);
+
+            List<Item> items = new ArrayList<>();
+
+            try (ResultSet resultSet =
+                         statement.executeQuery()) {
+
+                while (resultSet.next()) {
+                    items.add(mapItem(resultSet));
+                }
+            }
+
+            return items;
+
+        } catch (SQLException e) {
+            throw DatabaseExceptionMapper.map(e);
+        }
+    }
+
+    @Override
     public List<Item> findByOwnerIdAndStatus(
             int ownerId,
             ItemStatus status) {

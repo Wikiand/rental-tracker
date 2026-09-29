@@ -61,23 +61,39 @@ class RepositoryIntegrationTest {
     void userInsertAndQueriesWork() {
         User saved = createUser("christine");
 
-        User byId = userRepository.findById(saved.getId()).orElseThrow();
+        User byId = userRepository
+                .findById(saved.getId())
+                .orElseThrow();
+
         User byUsername = userRepository
                 .findByUsername("christine")
                 .orElseThrow();
-        User owner = userRepository.findOwner().orElseThrow();
+
+        String passwordHash = userRepository
+                .findPasswordHashByUsername("christine")
+                .orElseThrow();
 
         assertEquals(saved.getId(), byId.getId());
         assertEquals(saved.getId(), byUsername.getId());
-        assertEquals(saved.getId(), owner.getId());
-        assertEquals("christine", owner.getUsername());
+        assertEquals("christine", byUsername.getUsername());
+        assertEquals(TEST_PASSWORD_HASH, passwordHash);
     }
 
     @Test
     void missingUserReturnsEmpty() {
-        assertTrue(userRepository.findById(9999).isEmpty());
-        assertTrue(userRepository.findByUsername("missing").isEmpty());
-        assertTrue(userRepository.findOwner().isEmpty());
+        assertTrue(
+                userRepository.findById(9999).isEmpty()
+        );
+
+        assertTrue(
+                userRepository.findByUsername("missing").isEmpty()
+        );
+
+        assertTrue(
+                userRepository
+                        .findPasswordHashByUsername("missing")
+                        .isEmpty()
+        );
     }
 
     @Test
@@ -88,10 +104,14 @@ class RepositoryIntegrationTest {
                 createItem(owner.getId(), "Ladder")
         );
 
-        Item byId = itemRepository.findById(saved.getId()).orElseThrow();
+        Item byId = itemRepository
+                .findById(saved.getId())
+                .orElseThrow();
 
         List<Item> ownerItems =
-                itemRepository.findByOwnerId(owner.getId());
+                itemRepository.findByOwnerId(
+                        owner.getId()
+                );
 
         List<Item> availableItems =
                 itemRepository.findByOwnerIdAndStatus(
@@ -101,13 +121,91 @@ class RepositoryIntegrationTest {
 
         assertEquals(saved.getId(), byId.getId());
         assertEquals(1, ownerItems.size());
-        assertEquals("Ladder", ownerItems.get(0).getName());
+        assertEquals(
+                "Ladder",
+                ownerItems.get(0).getName()
+        );
         assertEquals(1, availableItems.size());
     }
 
     @Test
+    void findsAvailableItemsExcludingCurrentOwner() {
+        User currentUser = createUser("current-user");
+        User otherUser = createUser("other-user");
+
+        Item ownAvailable = itemRepository.save(
+                new Item(
+                        0,
+                        currentUser.getId(),
+                        "Own Camera",
+                        "My available camera",
+                        10.0,
+                        ItemStatus.AVAILABLE
+                )
+        );
+
+        Item otherAvailable = itemRepository.save(
+                new Item(
+                        0,
+                        otherUser.getId(),
+                        "Other Camera",
+                        "Another user's available camera",
+                        12.0,
+                        ItemStatus.AVAILABLE
+                )
+        );
+
+        Item otherRented = itemRepository.save(
+                new Item(
+                        0,
+                        otherUser.getId(),
+                        "Rented Camera",
+                        "Another user's rented camera",
+                        15.0,
+                        ItemStatus.RENTED
+                )
+        );
+
+        Item otherUnlisted = itemRepository.save(
+                new Item(
+                        0,
+                        otherUser.getId(),
+                        "Unlisted Camera",
+                        "Another user's unlisted camera",
+                        20.0,
+                        ItemStatus.UNLISTED
+                )
+        );
+
+        List<Item> result =
+                itemRepository.findAvailableExcludingOwner(
+                        currentUser.getId()
+                );
+
+        assertEquals(1, result.size());
+        assertEquals(
+                otherAvailable.getId(),
+                result.get(0).getId()
+        );
+        assertNotEquals(
+                ownAvailable.getId(),
+                result.get(0).getId()
+        );
+        assertNotEquals(
+                otherRented.getId(),
+                result.get(0).getId()
+        );
+        assertNotEquals(
+                otherUnlisted.getId(),
+                result.get(0).getId()
+        );
+    }
+
+    @Test
     void missingItemReturnsEmpty() {
-        assertTrue(itemRepository.findById(9999).isEmpty());
+        assertTrue(
+                itemRepository.findById(9999).isEmpty()
+        );
     }
 
     @Test
@@ -123,11 +221,14 @@ class RepositoryIntegrationTest {
                 ItemStatus.RENTED
         );
 
-        Item updated = itemRepository.findById(
-                item.getId()
-        ).orElseThrow();
+        Item updated = itemRepository
+                .findById(item.getId())
+                .orElseThrow();
 
-        assertEquals(ItemStatus.RENTED, updated.getStatus());
+        assertEquals(
+                ItemStatus.RENTED,
+                updated.getStatus()
+        );
     }
 
     @Test
@@ -140,28 +241,40 @@ class RepositoryIntegrationTest {
         );
 
         Rental rental = rentalRepository.save(
-                createRental(item.getId(), renter.getId())
+                createRental(
+                        item.getId(),
+                        renter.getId()
+                )
         );
 
-        Rental byId = rentalRepository.findById(
-                rental.getId()
-        ).orElseThrow();
+        Rental byId = rentalRepository
+                .findById(rental.getId())
+                .orElseThrow();
 
         List<Rental> active =
-                rentalRepository.findActiveByOwnerId(owner.getId());
+                rentalRepository.findActiveByOwnerId(
+                        owner.getId()
+                );
 
         List<Rental> history =
-                rentalRepository.findByOwnerId(owner.getId());
+                rentalRepository.findByOwnerId(
+                        owner.getId()
+                );
 
         assertEquals(rental.getId(), byId.getId());
-        assertEquals(RentalStatus.ACTIVE, byId.getStatus());
+        assertEquals(
+                RentalStatus.ACTIVE,
+                byId.getStatus()
+        );
         assertEquals(1, active.size());
         assertEquals(1, history.size());
     }
 
     @Test
     void missingRentalReturnsEmpty() {
-        assertTrue(rentalRepository.findById(9999).isEmpty());
+        assertTrue(
+                rentalRepository.findById(9999).isEmpty()
+        );
     }
 
     @Test
@@ -174,7 +287,10 @@ class RepositoryIntegrationTest {
         );
 
         Rental rental = rentalRepository.save(
-                createRental(item.getId(), renter.getId())
+                createRental(
+                        item.getId(),
+                        renter.getId()
+                )
         );
 
         rentalRepository.closeRental(
@@ -182,11 +298,15 @@ class RepositoryIntegrationTest {
                 LocalDateTime.now().toString()
         );
 
-        Rental closed = rentalRepository.findById(
-                rental.getId()
-        ).orElseThrow();
+        Rental closed = rentalRepository
+                .findById(rental.getId())
+                .orElseThrow();
 
-        assertEquals(RentalStatus.CLOSED, closed.getStatus());
+        assertEquals(
+                RentalStatus.CLOSED,
+                closed.getStatus()
+        );
+
         assertNotNull(closed.getReturnedAt());
 
         assertEquals(
@@ -214,7 +334,8 @@ class RepositoryIntegrationTest {
         );
 
         LocalDateTime start = LocalDateTime.now();
-        LocalDateTime returnedAt = start.plusDays(1);
+        LocalDateTime returnedAt =
+                start.plusDays(1);
 
         Rental rental = new Rental(
                 0,
@@ -226,45 +347,55 @@ class RepositoryIntegrationTest {
                 RentalStatus.CLOSED
         );
 
-        Rental saved = rentalRepository.save(rental);
+        Rental saved =
+                rentalRepository.save(rental);
 
-        Rental loaded = rentalRepository.findById(
-                saved.getId()
-        ).orElseThrow();
+        Rental loaded = rentalRepository
+                .findById(saved.getId())
+                .orElseThrow();
 
-        assertEquals(returnedAt, loaded.getReturnedAt());
-        assertEquals(RentalStatus.CLOSED, loaded.getStatus());
+        assertEquals(
+                returnedAt,
+                loaded.getReturnedAt()
+        );
+
+        assertEquals(
+                RentalStatus.CLOSED,
+                loaded.getStatus()
+        );
     }
 
     @Test
     void closingMissingRentalThrowsException() {
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
-                () -> rentalRepository.closeRental(
-                        9999,
-                        LocalDateTime.now().toString()
-                )
-        );
+        RuntimeException exception =
+                assertThrows(
+                        RuntimeException.class,
+                        () -> rentalRepository.closeRental(
+                                9999,
+                                LocalDateTime.now().toString()
+                        )
+                );
 
         assertTrue(
-                exception.getMessage().contains(
-                        "Active rental not found"
-                )
+                exception.getMessage()
+                        .contains("Active rental not found")
         );
     }
 
     @Test
     void updatingMissingItemThrowsException() {
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
-                () -> itemRepository.updateStatus(
-                        9999,
-                        ItemStatus.RENTED
-                )
-        );
+        RuntimeException exception =
+                assertThrows(
+                        RuntimeException.class,
+                        () -> itemRepository.updateStatus(
+                                9999,
+                                ItemStatus.RENTED
+                        )
+                );
 
         assertTrue(
-                exception.getMessage().contains("Item not found")
+                exception.getMessage()
+                        .contains("Item not found")
         );
     }
 
@@ -281,7 +412,12 @@ class RepositoryIntegrationTest {
     @Test
     void rentalWithMissingItemThrowsConstraintViolation() {
         User renter = createUser("james");
-        Rental rental = createRental(9999, renter.getId());
+
+        Rental rental =
+                createRental(
+                        9999,
+                        renter.getId()
+                );
 
         assertThrows(
                 ConstraintViolationException.class,
@@ -362,11 +498,12 @@ class RepositoryIntegrationTest {
     }
 
     @Test
-    void missingUserTableProducesDatabaseErrorWhenFindingOwner() {
+    void missingUserTableProducesDatabaseErrorWhenFindingPasswordHash() {
         dropTable("users");
 
         assertDatabaseError(
-                () -> userRepository.findOwner()
+                () -> userRepository
+                        .findPasswordHashByUsername("christine")
         );
     }
 
@@ -441,22 +578,32 @@ class RepositoryIntegrationTest {
                 createItem(owner.getId(), "Ladder")
         );
 
-        updateCreatedAt(item.getId(), "");
+        updateCreatedAt(
+                item.getId(),
+                ""
+        );
 
-        Item loaded = itemRepository.findById(
-                item.getId()
-        ).orElseThrow();
+        Item loaded = itemRepository
+                .findById(item.getId())
+                .orElseThrow();
 
         assertNull(loaded.getListingDate());
     }
 
+    private static final String TEST_PASSWORD_HASH =
+            "$argon2id$v=19$m=1024,t=3,p=2$test-salt$test-hash";
+
     private User createUser(String username) {
         return userRepository.save(
-                new User(0, username)
+                new User(0, username),
+                TEST_PASSWORD_HASH
         );
     }
 
-    private Item createItem(int ownerId, String name) {
+    private Item createItem(
+            int ownerId,
+            String name
+    ) {
         return new Item(
                 0,
                 ownerId,
@@ -467,8 +614,12 @@ class RepositoryIntegrationTest {
         );
     }
 
-    private Rental createRental(int itemId, int renterId) {
-        LocalDateTime start = LocalDateTime.now();
+    private Rental createRental(
+            int itemId,
+            int renterId
+    ) {
+        LocalDateTime start =
+                LocalDateTime.now();
 
         return new Rental(
                 0,
@@ -516,10 +667,11 @@ class RepositoryIntegrationTest {
     private void assertDatabaseError(
             org.junit.jupiter.api.function.Executable action
     ) {
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
-                action
-        );
+        RuntimeException exception =
+                assertThrows(
+                        RuntimeException.class,
+                        action
+                );
 
         assertEquals(
                 "Database error",

@@ -1,4 +1,3 @@
-
 package com.kood.rentaltracker;
 
 import com.kood.rentaltracker.domain.Item;
@@ -29,6 +28,9 @@ class RentalServiceTest {
         Item item = availableItem();
         items.item = item;
 
+        User renter = new User(2, "james");
+        users.user = renter;
+
         RentalService service =
                 new RentalService(
                         rentals,
@@ -38,7 +40,7 @@ class RentalServiceTest {
 
         Rental rental = service.recordRental(
                 item,
-                "james",
+                renter.getId(),
                 3
         );
 
@@ -46,6 +48,10 @@ class RentalServiceTest {
         assertEquals(
                 RentalStatus.ACTIVE,
                 rental.getStatus()
+        );
+        assertEquals(
+                renter.getId(),
+                rental.getRenterId()
         );
         assertEquals(
                 ItemStatus.RENTED,
@@ -78,8 +84,27 @@ class RentalServiceTest {
                 IllegalArgumentException.class,
                 () -> service.recordRental(
                         availableItem(),
-                        "james",
+                        2,
                         0
+                )
+        );
+    }
+
+    @Test
+    void rejectsNegativeRentalDuration() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.recordRental(
+                        availableItem(),
+                        2,
+                        -1
                 )
         );
     }
@@ -106,14 +131,35 @@ class RentalServiceTest {
                 IllegalStateException.class,
                 () -> service.recordRental(
                         item,
-                        "james",
+                        2,
                         3
                 )
         );
     }
 
     @Test
-    void rejectsEmptyRenterUsername() {
+    void rejectsOwnItem() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        Item item = availableItem();
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.recordRental(
+                        item,
+                        item.getOwnerId(),
+                        3
+                )
+        );
+    }
+
+    @Test
+    void rejectsUnknownRenter() {
         RentalService service =
                 new RentalService(
                         new FakeRentalRepository(),
@@ -125,14 +171,14 @@ class RentalServiceTest {
                 IllegalArgumentException.class,
                 () -> service.recordRental(
                         availableItem(),
-                        " ",
+                        999,
                         3
                 )
         );
     }
 
     @Test
-    void rejectsNullRenterUsername() {
+    void rejectsNullItem() {
         RentalService service =
                 new RentalService(
                         new FakeRentalRepository(),
@@ -143,8 +189,8 @@ class RentalServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> service.recordRental(
-                        availableItem(),
                         null,
+                        2,
                         3
                 )
         );
@@ -169,7 +215,11 @@ class RentalServiceTest {
                         new FakeUserRepository()
                 );
 
-        service.confirmReturn(item, rental);
+        service.confirmReturn(
+                item,
+                rental,
+                item.getOwnerId()
+        );
 
         assertEquals(
                 ItemStatus.AVAILABLE,
@@ -207,7 +257,11 @@ class RentalServiceTest {
                         new FakeUserRepository()
                 );
 
-        service.confirmReturn(item, rental);
+        service.confirmReturn(
+                item,
+                rental,
+                item.getOwnerId()
+        );
 
         assertEquals(
                 ItemStatus.UNLISTED,
@@ -216,6 +270,62 @@ class RentalServiceTest {
         assertEquals(
                 RentalStatus.CLOSED,
                 rental.getStatus()
+        );
+    }
+
+    @Test
+    void rejectsReturnByNonOwner() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        Item item = availableItem();
+        item.setStatus(ItemStatus.RENTED);
+
+        Rental rental = activeRental();
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.confirmReturn(
+                        item,
+                        rental,
+                        999
+                )
+        );
+    }
+
+    @Test
+    void rejectsReturnForDifferentItem() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        Item item = availableItem();
+        item.setStatus(ItemStatus.RENTED);
+
+        Rental rental = new Rental(
+                1,
+                999,
+                2,
+                LocalDateTime.now().minusDays(3),
+                LocalDateTime.now().plusDays(1),
+                null,
+                RentalStatus.ACTIVE
+        );
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.confirmReturn(
+                        item,
+                        rental,
+                        item.getOwnerId()
+                )
         );
     }
 
@@ -245,7 +355,8 @@ class RentalServiceTest {
                 IllegalStateException.class,
                 () -> service.confirmReturn(
                         item,
-                        rental
+                        rental,
+                        item.getOwnerId()
                 )
         );
     }
@@ -265,7 +376,8 @@ class RentalServiceTest {
                 IllegalStateException.class,
                 () -> service.confirmReturn(
                         item,
-                        activeRental()
+                        activeRental(),
+                        item.getOwnerId()
                 )
         );
     }
@@ -375,20 +487,15 @@ class RentalServiceTest {
         users.user =
                 new User(2, "james");
 
-        FakeRentalRepository rentals =
-                new FakeRentalRepository();
-
-        Rental rental = activeRental();
-
         RentalService service =
                 new RentalService(
-                        rentals,
+                        new FakeRentalRepository(),
                         new FakeItemRepository(),
                         users
                 );
 
         User result =
-                service.getRenter(rental);
+                service.getRenter(activeRental());
 
         assertEquals(
                 2,
@@ -451,6 +558,90 @@ class RentalServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> service.getItem(activeRental())
+        );
+    }
+
+
+    @Test
+    void rejectsNullItemDuringReturnConfirmation() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.confirmReturn(
+                        null,
+                        activeRental(),
+                        1
+                )
+        );
+    }
+
+    @Test
+    void rejectsNullRentalDuringReturnConfirmation() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.confirmReturn(
+                        availableItem(),
+                        null,
+                        1
+                )
+        );
+    }
+
+    @Test
+    void rejectsInvalidRentalId() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.getRental(0)
+        );
+    }
+
+    @Test
+    void rejectsNullRentalWhenGettingRenter() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.getRenter(null)
+        );
+    }
+
+    @Test
+    void rejectsNullRentalWhenGettingItem() {
+        RentalService service =
+                new RentalService(
+                        new FakeRentalRepository(),
+                        new FakeItemRepository(),
+                        new FakeUserRepository()
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.getItem(null)
         );
     }
 
@@ -518,6 +709,19 @@ class RentalServiceTest {
             }
 
             return List.of();
+        }
+
+        @Override
+        public List<Item> findAvailableExcludingOwner(
+                int ownerId
+        ) {
+            if (item == null
+                    || item.getOwnerId() == ownerId
+                    || item.getStatus() != ItemStatus.AVAILABLE) {
+                return List.of();
+            }
+
+            return List.of(item);
         }
 
         @Override
@@ -615,9 +819,12 @@ class RentalServiceTest {
         private User user;
 
         @Override
-        public User save(User user) {
+        public User save(
+                User user,
+                String passwordHash
+        ) {
             this.user = new User(
-                    2,
+                    user.getId() == 0 ? 2 : user.getId(),
                     user.getUsername()
             );
 
@@ -646,8 +853,10 @@ class RentalServiceTest {
         }
 
         @Override
-        public Optional<User> findOwner() {
-            return Optional.ofNullable(user);
+        public Optional<String> findPasswordHashByUsername(
+                String username
+        ) {
+            return Optional.empty();
         }
     }
 }

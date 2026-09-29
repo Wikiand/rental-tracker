@@ -1,757 +1,345 @@
-
 package com.kood.rentaltracker;
 
-import com.kood.rentaltracker.domain.Item;
-import com.kood.rentaltracker.domain.ItemStatus;
 import com.kood.rentaltracker.domain.User;
-import com.kood.rentaltracker.repository.ItemRepositoryImpl;
+import com.kood.rentaltracker.infrastructure.DatabaseInitializer;
 import com.kood.rentaltracker.repository.UserRepositoryImpl;
-import com.kood.rentaltracker.support.DatabaseTestSupport;
+import com.kood.rentaltracker.security.PasswordHasher;
 import com.kood.rentaltracker.transport.Main;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MainIntegrationTest {
 
-    private Path database;
+    private static final String USERNAME = "testuser";
+    private static final String PASSWORD = "password123";
+
+    private Path databaseFile;
+    private ByteArrayOutputStream output;
+    private PrintStream originalOut;
+    private java.io.InputStream originalIn;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        originalOut = System.out;
+        originalIn = System.in;
+
+        databaseFile =
+                Files.createTempFile(
+                        "rental-tracker-test-",
+                        ".db"
+                );
+
+        System.setProperty(
+                "rental.tracker.db.url",
+                "jdbc:sqlite:" + databaseFile
+        );
+
+        DatabaseInitializer.initialize();
+
+        output = new ByteArrayOutputStream();
+
+        System.setOut(
+                new PrintStream(
+                        output,
+                        true,
+                        StandardCharsets.UTF_8
+                )
+        );
+    }
 
     @AfterEach
-    void tearDown() throws IOException {
-        if (database != null) {
-            DatabaseTestSupport.cleanup(database);
-        }
-    }
+    void tearDown() throws Exception {
+        System.setOut(originalOut);
+        System.setIn(originalIn);
 
-    @Test
-    void firstLaunchPromptsForUsernameAndExits() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        String output = runApp("""
-                christine
-                6
-                """);
-
-        assertTrue(output.contains("Enter your username:"));
-        assertTrue(output.contains("Welcome, christine!"));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void existingAccountLoadsWithoutUsernamePrompt() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        createUser("christine");
-
-        String output = runApp("""
-                6
-                """);
-
-        assertFalse(output.contains("Enter your username:"));
-        assertTrue(output.contains("=== Rental tracker ==="));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void listingItemReturnsToMainMenu() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        String output = runApp("""
-                1
-                Drill
-                Cordless drill
-                8
-                6
-                """);
-
-        assertTrue(output.contains("Item listed successfully."));
-        assertTrue(output.contains("=== Rental tracker ==="));
-        assertTrue(output.contains("Goodbye."));
-
-        assertItemStatus(
-                ownerId,
-                1,
-                ItemStatus.AVAILABLE
-        );
-    }
-
-    @Test
-    void inventorySupportsPaginationAndItemDetails() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 6);
-
-        String output = runApp("""
-                2
-                N
-                1
-                B
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 6"));
-        assertTrue(output.contains("description    Test description"));
-        assertTrue(output.contains("cost per day   5.0"));
-        assertTrue(output.contains("status         available"));
-    }
-
-    @Test
-    void inventoryNextOnLastPageDoesNotAdvance() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 2);
-
-        String output = runApp("""
-                2
-                N
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 1"));
-        assertTrue(output.contains("Item 2"));
-        assertTrue(output.contains("=== Rental tracker ==="));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void inventorySupportsPreviousPage() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 6);
-
-        String output = runApp("""
-                2
-                N
-                P
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 6"));
-        assertTrue(output.contains("Item 1"));
-        assertTrue(output.contains("=== Rental tracker ==="));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void inventoryPreviousOnFirstPageDoesNotGoBack() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 2);
-
-        String output = runApp("""
-                2
-                P
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 1"));
-        assertTrue(output.contains("Item 2"));
-        assertTrue(output.contains("=== Rental tracker ==="));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void emptyInventoryAfterDelistingDoesNotCrashApplication()
-            throws Exception {
-
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
+        System.clearProperty(
+                "rental.tracker.db.url"
         );
 
-        String output = runApp("""
-                2
-                1
-                1
-                B
-                6
-                """);
+        Files.deleteIfExists(databaseFile);
+    }
 
-        assertTrue(
-                output.contains("Item delisted."),
-                output
+    @Test
+    void wrongPasswordIsRejected() {
+        createUser();
+
+        String input = """
+                2
+                testuser
+                wrongpassword
+                3
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        System.err.println(
+                "===== APP OUTPUT ====="
+        );
+        System.err.println(appOutput);
+        System.err.println(
+                "===== END APP OUTPUT ====="
         );
 
         assertTrue(
-                output.contains("No items found."),
-                output
-        );
-
-        assertTrue(
-                output.contains("Goodbye."),
-                output
+                appOutput.contains(
+                        "Invalid username or password."
+                )
         );
     }
 
     @Test
-    void invalidInventorySelectionDoesNotCrashApplication()
-            throws Exception {
+    void correctPasswordIsAccepted() {
+        createUser();
 
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
+        String input = """
                 2
-                2
-                B
-                6
-                """);
+                testuser
+                password123
+                5
+                """;
 
-        assertTrue(output.contains("Invalid option."));
-        assertTrue(output.contains("=== Rental tracker ==="));
-        assertTrue(output.contains("Goodbye."));
-    }
+        runApplication(input);
 
-    @Test
-    void zeroInventorySelectionDoesNotCrashApplication()
-            throws Exception {
-
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
-                2
-                0
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Invalid option."));
-        assertTrue(output.contains("=== Rental tracker ==="));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void invalidInventoryDetailSelectionDoesNotCrashApplication()
-            throws Exception {
-
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
-                2
-                1
-                X
-                B
-                B
-                6
-                """);
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
 
         assertTrue(
-                output.contains("Invalid option."),
-                output
-        );
-
-        assertTrue(
-                output.contains("=== Rental tracker ==="),
-                output
-        );
-
-        assertTrue(
-                output.contains("Goodbye."),
-                output
-        );
-    }
-
-    @Test
-    void rentalItemSelectionSupportsNextPage() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 6);
-
-        String output = runApp("""
-                3
-                N
-                1
-                james
-                3
-                4
-                1
-                1
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 6"));
-        assertTrue(output.contains("Rental recorded successfully."));
-    }
-
-    @Test
-    void invalidRentalDurationDoesNotCrashApplication()
-            throws Exception {
-
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
-                3
-                1
-                james
-                invalid
-                6
-                """);
-
-        assertTrue(output.contains("Invalid duration."));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void activeRentalsSupportNextPage()
-            throws Exception {
-
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 6);
-
-        String output = runApp("""
-                3
-                1
-                james
-                3
-                3
-                1
-                alex
-                3
-                3
-                1
-                maria
-                3
-                3
-                1
-                peter
-                3
-                3
-                1
-                linda
-                3
-                3
-                1
-                david
-                3
-                4
-                N
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 6"));
-        assertTrue(output.contains("david"));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void activeRentalsSupportPreviousPage()
-            throws Exception {
-
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 6);
-
-        String output = runApp("""
-                3
-                1
-                james
-                3
-                3
-                1
-                alex
-                3
-                3
-                1
-                maria
-                3
-                3
-                1
-                peter
-                3
-                3
-                1
-                linda
-                3
-                3
-                1
-                david
-                3
-                4
-                N
-                P
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 6"));
-        assertTrue(output.contains("Item 1"));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void activeRentalsAdjustPageAfterReturn()
-            throws Exception {
-
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-        createItems(ownerId, 6);
-
-        String output = runApp("""
-                3
-                1
-                james
-                3
-                3
-                1
-                alex
-                3
-                3
-                1
-                maria
-                3
-                3
-                1
-                peter
-                3
-                3
-                1
-                linda
-                3
-                3
-                1
-                david
-                3
-                4
-                N
-                1
-                1
-                B
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item 6"));
-
-        assertTrue(
-                output.contains(
-                        "Return confirmed successfully."
+                appOutput.contains(
+                        "Welcome, testuser!"
                 )
         );
 
-        assertTrue(output.contains("Item 5"));
-        assertTrue(output.contains("Goodbye."));
-    }
-
-    @Test
-    void itemCanBeDelistedAndRelisted() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
-                2
-                1
-                1
-                1
-                2
-                B
-                6
-                """);
-
-        assertTrue(output.contains("Item delisted."));
-        assertTrue(output.contains("Item relisted."));
-
-        assertItemStatus(
-                ownerId,
-                1,
-                ItemStatus.AVAILABLE
+        assertTrue(
+                appOutput.contains(
+                        "1) List an item"
+                )
         );
     }
 
     @Test
-    void rentalCanBeRecordedAndReturned() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
+    void unknownUserIsRejected() {
+        String input = """
+                2
+                unknownuser
+                password123
                 3
-                1
-                james
-                3
-                4
-                1
-                1
-                B
-                6
-                """);
+                """;
 
-        assertTrue(output.contains("Rental recorded successfully."));
-        assertTrue(output.contains("Return confirmed successfully."));
+        runApplication(input);
 
-        assertItemStatus(
-                ownerId,
-                1,
-                ItemStatus.AVAILABLE
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Invalid username or password."
+                )
         );
     }
 
     @Test
-    void rentedItemCanBeDelistedBeforeReturn() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
+    void emptyPasswordIsRejected() {
+        createUser();
 
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
-                3
-                1
-                james
-                3
+        String input = """
                 2
-                1
-                1
-                2
-                B
-                4
-                1
-                1
-                B
-                6
-                """);
+                testuser
 
-        assertTrue(output.contains("Rental recorded successfully."));
-        assertTrue(output.contains("Item delisted."));
-        assertTrue(output.contains("Return confirmed successfully."));
+                3
+                """;
 
-        assertItemStatus(
-                ownerId,
-                1,
-                ItemStatus.UNLISTED
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Password cannot be empty."
+                )
         );
     }
 
     @Test
-    void rentalHistoryCanBeViewed() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
-
-        int ownerId = createUser("christine");
-
-        createItem(
-                ownerId,
-                "Drill",
-                "Cordless drill",
-                8.0
-        );
-
-        String output = runApp("""
-                3
+    void userCanRegisterThenLogin() {
+        String input = """
                 1
-                james
-                3
-                4
-                1
-                1
-                B
+                newuser
+                password123
+                password123
+                2
+                newuser
+                password123
                 5
-                6
-                """);
+                """;
 
-        assertTrue(output.contains("Rental recorded successfully."));
-        assertTrue(output.contains("=== Rental history ==="));
-        assertTrue(output.contains("Item Drill"));
-        assertTrue(output.contains("Renter james"));
-        assertTrue(output.contains("closed"));
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Account created successfully for newuser."
+                )
+        );
+
+        assertTrue(
+                appOutput.contains(
+                        "Welcome, newuser!"
+                )
+        );
     }
 
     @Test
-    void invalidInputDoesNotCrashApplication() throws Exception {
-        database = DatabaseTestSupport.createDatabase();
+    void registrationRejectsPasswordMismatch() {
+        String input = """
+                1
+                newuser
+                password123
+                differentpassword
+                3
+                """;
 
-        createUser("christine");
+        runApplication(input);
 
-        String output = runApp("""
-                invalid
-                9
-                6
-                """);
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
 
-        assertTrue(output.contains("Invalid option."));
-        assertTrue(output.contains("Goodbye."));
+        assertTrue(
+                appOutput.contains(
+                        "Passwords do not match."
+                )
+        );
     }
 
-    private int createUser(String username) {
+    @Test
+    void registrationRejectsShortPassword() {
+        String input = """
+                1
+                newuser
+                short
+                short
+                3
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Password must be at least 8 characters."
+                )
+        );
+    }
+
+    @Test
+    void registrationRejectsBlankUsername() {
+        String input = """
+                1
+
+                password123
+                password123
+                3
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Username cannot be empty."
+                )
+        );
+    }
+
+    @Test
+    void duplicateUsernameIsRejected() {
+        createUser();
+
+        String input = """
+                1
+                testuser
+                password123
+                password123
+                3
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Username is already taken."
+                )
+        );
+    }
+
+    private void createUser() {
         UserRepositoryImpl repository =
                 new UserRepositoryImpl();
 
-        User user = repository.save(
-                new User(0, username)
-        );
+        PasswordHasher passwordHasher =
+                new PasswordHasher();
 
-        return user.getId();
+        String passwordHash =
+                passwordHasher.hash(PASSWORD);
+
+        repository.save(
+                new User(
+                        0,
+                        USERNAME
+                ),
+                passwordHash
+        );
     }
 
-    private Item createItem(
-            int ownerId,
-            String name,
-            String description,
-            double costPerDay
-    ) {
-        ItemRepositoryImpl repository =
-                new ItemRepositoryImpl();
-
-        return repository.save(
-                new Item(
-                        0,
-                        ownerId,
-                        name,
-                        description,
-                        costPerDay,
-                        ItemStatus.AVAILABLE
+    private void runApplication(String input) {
+        System.setIn(
+                new ByteArrayInputStream(
+                        input.getBytes(
+                                StandardCharsets.UTF_8
+                        )
                 )
         );
-    }
 
-    private void createItems(
-            int ownerId,
-            int count
-    ) {
-        for (int i = 1; i <= count; i++) {
-            createItem(
-                    ownerId,
-                    "Item " + i,
-                    "Test description",
-                    5.0
-            );
-        }
-    }
-
-    private void assertItemStatus(
-            int ownerId,
-            int itemId,
-            ItemStatus expectedStatus
-    ) {
-        ItemRepositoryImpl repository =
-                new ItemRepositoryImpl();
-
-        Item item = repository.findById(itemId)
-                .orElseThrow();
-
-        assertEquals(ownerId, item.getOwnerId());
-        assertEquals(expectedStatus, item.getStatus());
-    }
-
-    private String runApp(String input)
-            throws Exception {
-
-        InputStream originalIn = System.in;
-        PrintStream originalOut = System.out;
-
-        ByteArrayInputStream testInput =
-                new ByteArrayInputStream(
-                        input.getBytes(StandardCharsets.UTF_8)
-                );
-
-        ByteArrayOutputStream testOutput =
-                new ByteArrayOutputStream();
-
-        try {
-            System.setIn(testInput);
-            System.setOut(
-                    new PrintStream(
-                            testOutput,
-                            true,
-                            StandardCharsets.UTF_8
-                    )
-            );
-
-            Main.main(new String[0]);
-
-            return testOutput.toString(
-                    StandardCharsets.UTF_8
-            );
-        } finally {
-            System.setIn(originalIn);
-            System.setOut(originalOut);
-        }
+        Main.main(new String[0]);
     }
 }

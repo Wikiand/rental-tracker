@@ -2,17 +2,48 @@
 
 import com.kood.rentaltracker.domain.Item;
 import com.kood.rentaltracker.domain.ItemStatus;
+import com.kood.rentaltracker.logging.AppLogger;
 import com.kood.rentaltracker.repository.ItemRepository;
+import com.kood.rentaltracker.validation.ItemValidator;
 
 import java.util.List;
 
 public class ItemService {
 
     private final ItemRepository itemRepository;
+    private final ItemValidator itemValidator;
+    private final AppLogger logger;
 
-<span class="fc" id="L13">    public ItemService(ItemRepository itemRepository) {</span>
-<span class="fc" id="L14">        this.itemRepository = itemRepository;</span>
-<span class="fc" id="L15">    }</span>
+    public ItemService(
+            ItemRepository itemRepository
+    ) {
+<span class="fc" id="L20">        this(</span>
+                itemRepository,
+                new ItemValidator(),
+                new AppLogger()
+        );
+<span class="fc" id="L25">    }</span>
+
+    public ItemService(
+            ItemRepository itemRepository,
+            ItemValidator itemValidator
+    ) {
+<span class="nc" id="L31">        this(</span>
+                itemRepository,
+                itemValidator,
+                new AppLogger()
+        );
+<span class="nc" id="L36">    }</span>
+
+    public ItemService(
+            ItemRepository itemRepository,
+            ItemValidator itemValidator,
+            AppLogger logger
+<span class="fc" id="L42">    ) {</span>
+<span class="fc" id="L43">        this.itemRepository = itemRepository;</span>
+<span class="fc" id="L44">        this.itemValidator = itemValidator;</span>
+<span class="fc" id="L45">        this.logger = logger;</span>
+<span class="fc" id="L46">    }</span>
 
     public Item listItem(
             int ownerId,
@@ -20,71 +51,184 @@ public class ItemService {
             String description,
             double costPerDay
     ) {
-<span class="fc bfc" id="L23" title="All 4 branches covered.">        if (name == null || name.isBlank()) {</span>
-<span class="fc" id="L24">            throw new IllegalArgumentException(</span>
-                    &quot;Item name cannot be empty.&quot;
+        try {
+<span class="fc" id="L55">            itemValidator.validate(</span>
+                    ownerId,
+                    name,
+                    description,
+                    costPerDay
             );
-        }
-
-<span class="fc bfc" id="L29" title="All 4 branches covered.">        if (description == null || description.isBlank()) {</span>
-<span class="fc" id="L30">            throw new IllegalArgumentException(</span>
-                    &quot;Item description cannot be empty.&quot;
+<span class="fc" id="L61">        } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L62">            logger.warn(</span>
+                    &quot;item.validation.failed&quot;,
+                    &quot;userId=&quot; + ownerId
+<span class="fc" id="L65">                            + &quot; reason=&quot; + safeMessage(e)</span>
             );
-        }
 
-<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (costPerDay &lt;= 0) {</span>
-<span class="fc" id="L36">            throw new IllegalArgumentException(</span>
-                    &quot;Cost per day must be greater than zero.&quot;
-            );
-        }
+<span class="fc" id="L68">            throw e;</span>
+<span class="fc" id="L69">        }</span>
 
-<span class="fc" id="L41">        Item item = new Item(</span>
+<span class="fc" id="L71">        Item item = new Item(</span>
                 0,
                 ownerId,
-<span class="fc" id="L44">                name.trim(),</span>
-<span class="fc" id="L45">                description.trim(),</span>
+<span class="fc" id="L74">                name.trim(),</span>
+<span class="fc" id="L75">                description.trim(),</span>
                 costPerDay,
                 ItemStatus.AVAILABLE
         );
 
-<span class="fc" id="L50">        return itemRepository.save(item);</span>
-    }
+<span class="fc" id="L80">        Item savedItem =</span>
+<span class="fc" id="L81">                itemRepository.save(item);</span>
 
-    public List&lt;Item&gt; getInventory(int ownerId) {
-<span class="fc" id="L54">        return itemRepository.findByOwnerId(ownerId)</span>
-<span class="fc" id="L55">                .stream()</span>
-<span class="fc" id="L56">                .filter(item -&gt;</span>
-<span class="fc bfc" id="L57" title="All 2 branches covered.">                        item.getStatus() != ItemStatus.UNLISTED</span>
-                )
-<span class="fc" id="L59">                .toList();</span>
-    }
-
-    public List&lt;Item&gt; getAvailableItems(int ownerId) {
-<span class="fc" id="L63">        return itemRepository.findByOwnerIdAndStatus(</span>
-                ownerId,
-                ItemStatus.AVAILABLE
+<span class="fc" id="L83">        logger.info(</span>
+                &quot;item.listed&quot;,
+                &quot;userId=&quot; + ownerId
+<span class="fc" id="L86">                        + &quot; itemId=&quot; + savedItem.getId()</span>
         );
+
+<span class="fc" id="L89">        return savedItem;</span>
     }
 
+    public List&lt;Item&gt; getInventory(
+            int ownerId
+    ) {
+<span class="fc" id="L95">        itemValidator.validateOwnerId(ownerId);</span>
+
+<span class="fc" id="L97">        return itemRepository</span>
+<span class="fc" id="L98">                .findByOwnerId(ownerId)</span>
+<span class="fc" id="L99">                .stream()</span>
+<span class="fc" id="L100">                .filter(item -&gt;</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">                        item.getStatus()</span>
+                                != ItemStatus.UNLISTED
+                )
+<span class="fc" id="L104">                .toList();</span>
+    }
+
+    public List&lt;Item&gt; getAvailableItems(
+            int ownerId
+    ) {
+<span class="fc" id="L110">        itemValidator.validateOwnerId(ownerId);</span>
+
+<span class="fc" id="L112">        return itemRepository</span>
+<span class="fc" id="L113">                .findAvailableExcludingOwner(</span>
+                        ownerId
+                );
+    }
+
+    /*
+     * Existing method retained for backwards compatibility
+     * with the current test suite.
+     */
     public void changeStatus(
             Item item,
             ItemStatus nextStatus
     ) {
-<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (!item.getStatus().canTransitionTo(nextStatus)) {</span>
-<span class="fc" id="L74">            throw new IllegalStateException(</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        if (item == null) {</span>
+<span class="fc" id="L127">            throw new IllegalArgumentException(</span>
+                    &quot;Item cannot be null.&quot;
+            );
+        }
+
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        if (nextStatus == null) {</span>
+<span class="fc" id="L133">            throw new IllegalArgumentException(</span>
+                    &quot;Item status cannot be null.&quot;
+            );
+        }
+
+<span class="fc" id="L138">        itemValidator.validateOwnerId(</span>
+<span class="fc" id="L139">                item.getOwnerId()</span>
+        );
+
+<span class="fc" id="L142">        validateStatusTransition(</span>
+                item,
+                nextStatus
+        );
+
+<span class="fc" id="L147">        itemRepository.updateStatus(</span>
+<span class="fc" id="L148">                item.getId(),</span>
+                nextStatus
+        );
+
+<span class="fc" id="L152">        item.setStatus(nextStatus);</span>
+<span class="fc" id="L153">    }</span>
+
+    /*
+     * Ownership-aware version.
+     *
+     * This is the method application code should use when
+     * a logged-in user changes an item status.
+     */
+    public void changeStatus(
+            int currentUserId,
+            Item item,
+            ItemStatus nextStatus
+    ) {
+<span class="fc" id="L166">        itemValidator.validateOwnerId(</span>
+                currentUserId
+        );
+
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        if (item == null) {</span>
+<span class="fc" id="L171">            throw new IllegalArgumentException(</span>
+                    &quot;Item cannot be null.&quot;
+            );
+        }
+
+<span class="fc bfc" id="L176" title="All 2 branches covered.">        if (nextStatus == null) {</span>
+<span class="fc" id="L177">            throw new IllegalArgumentException(</span>
+                    &quot;Item status cannot be null.&quot;
+            );
+        }
+
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        if (item.getOwnerId() != currentUserId) {</span>
+<span class="fc" id="L183">            throw new IllegalStateException(</span>
+                    &quot;You can only manage your own items.&quot;
+            );
+        }
+
+<span class="fc" id="L188">        validateStatusTransition(</span>
+                item,
+                nextStatus
+        );
+
+<span class="fc" id="L193">        itemRepository.updateStatus(</span>
+<span class="fc" id="L194">                item.getId(),</span>
+                nextStatus
+        );
+
+<span class="fc" id="L198">        item.setStatus(nextStatus);</span>
+<span class="fc" id="L199">    }</span>
+
+    private void validateStatusTransition(
+            Item item,
+            ItemStatus nextStatus
+    ) {
+<span class="fc" id="L205">        if (!item.getStatus()</span>
+<span class="fc bfc" id="L206" title="All 2 branches covered.">                .canTransitionTo(nextStatus)) {</span>
+
+<span class="fc" id="L208">            throw new IllegalStateException(</span>
                     &quot;Invalid status transition: &quot;
-<span class="fc" id="L76">                            + item.getStatus()</span>
+<span class="fc" id="L210">                            + item.getStatus()</span>
                             + &quot; -&gt; &quot;
                             + nextStatus
             );
         }
+<span class="fc" id="L215">    }</span>
 
-<span class="fc" id="L82">        itemRepository.updateStatus(</span>
-<span class="fc" id="L83">                item.getId(),</span>
-                nextStatus
-        );
+    private String safeMessage(
+            Exception exception
+    ) {
+<span class="fc" id="L220">        String message = exception.getMessage();</span>
 
-<span class="fc" id="L87">        item.setStatus(nextStatus);</span>
-<span class="fc" id="L88">    }</span>
+<span class="pc bpc" id="L222" title="2 of 4 branches missed.">        if (message == null || message.isBlank()) {</span>
+<span class="nc" id="L223">            return &quot;validation-error&quot;;</span>
+        }
+
+<span class="fc" id="L226">        return message</span>
+<span class="fc" id="L227">                .replace(&quot; &quot;, &quot;_&quot;)</span>
+<span class="fc" id="L228">                .replace(</span>
+<span class="fc" id="L229">                        System.lineSeparator(),</span>
+                        &quot;&quot;
+                );
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
