@@ -705,12 +705,4 @@ The project combines software development practices with security-conscious engi
 
 ---
 
-## 👩‍💻 Team
-
-**Christine Nyambura** — Team Leader  
-**Zipporah Chibalonza** — Member  
-**Victor Kiama** — Member
-
----
-
 **Built with Java 17, Maven, SQLite, Docker, and a security-first approach.**
