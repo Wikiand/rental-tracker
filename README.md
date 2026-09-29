@@ -1,263 +1,504 @@
 # Multi-User Rental Tracker
 
-A command-line rental management application that supports multiple user accounts, secure password hashing, item ownership, rentals, returns, validation, structured logging, persistent SQLite storage, and Docker deployment.
+A secure, multi-user rental management application built with **Java 17**, **Maven**, and **SQLite**. The system allows users to register and authenticate, list items for rent, browse other users' listings, create rentals, and confirm returns.
 
-## Team
+The project focuses on **secure application design, clear separation of responsibilities, data integrity, validation, testing, logging, and persistent storage**.
 
-- **Christine Nyambura** — Team Leader
-- **Zipporah Chibalonza** — Member
-- **Victor Kiama** — Member
+---
 
-## Overview
+## 👥 Team
 
-The Multi-User Rental Tracker allows users to register and log in to their own accounts, list items for rent, manage their inventory, browse other users' available listings, rent items, and confirm returns.
+| Name | Role |
+|---|---|
+| **Christine Nyambura** | Team Leader |
+| **Zipporah Chibalonza** | Member |
+| **Victor Kiama** | Member |
 
-The application enforces ownership and rental rules in the service layer rather than relying only on the CLI interface.
+---
 
-## Features
+## 📌 Overview
 
-### Authentication
+The Multi-User Rental Tracker is a command-line rental platform where multiple users can interact with a shared rental database.
+
+Each user can:
+
+- Create an account
+- Log in securely
+- List items for rental
+- View their own inventory
+- Browse items listed by other users
+- Rent available items
+- Confirm returned rentals
+
+The application enforces ownership and rental rules at the service layer while using SQLite to maintain persistent application data.
+
+---
+
+## ✨ Key Features
+
+### 🔐 Authentication & Security
+
 - User registration and login
 - Unique usernames
-- Argon2id password hashing
-- Passwords and password hashes are never logged
-- Invalid credentials produce a readable error message
+- Password hashing using **Argon2id**
+- Passwords are never stored in plaintext
+- Password hashes are never written to application logs
+- Session-aware operations use the currently authenticated user
 
-### Rental Management
-- List items for rent
-- View personal inventory
-- Browse available items
-- Rent items for a selected number of days
-- Confirm returned rentals
-- Track active and completed rentals
+### 🏠 Item Management
 
-### Ownership Enforcement
-- Listed items automatically belong to the logged-in user
-- Rentals automatically use the logged-in user as the renter
-- Users cannot rent their own items
-- Only the item owner can confirm a return
-- Ownership checks are enforced in the service layer
+- List an item for rental
+- Automatically associate the item with its owner
+- View items owned by the current user
+- Browse available listings from other users
+- Set a rental price per day
+- Validate item information before persistence
 
-### Validation
-Validation is performed at the service boundary before repository/database operations.
+### 📦 Rental Management
 
-The application validates:
-- Required text fields
-- Positive rental costs
-- Valid user references
-- Valid item references
-- Positive rental duration
-- Valid entity relationships
+- Rent available items
+- Automatically associate rentals with the authenticated renter
+- Calculate rental periods
+- Prevent users from renting their own listings
+- Prevent unavailable items from being rented
+- Confirm returns
+- Automatically update item and rental states
 
-Invalid input is rejected before it reaches the database.
+### 🛡️ Validation & Business Rules
 
-### Browsing and Pagination
-- Available listings exclude items owned by the current user
-- Listings are displayed five items per page
-- Users can navigate between pages
-- Users can view an item and choose to rent it
+Validation is performed at the service boundary to prevent invalid data from reaching the persistence layer.
 
-### Structured Logging
-The application records structured events containing:
-- Timestamp
-- Log level
-- Event name
-- Context fields
+Examples include:
 
-Important events include:
-- Database connection opening and closing
-- Validation failures
-- Database exceptions
-- Recoverable failures
+- Username validation
+- Password validation
+- Item name and description validation
+- Rental duration validation
+- Ownership checks
+- Item availability checks
+- Rental state checks
+
+### 📝 Structured Logging
+
+The application includes structured application logging with:
+
+- UTC timestamps
+- Log levels
+- Event names
+- Context information
+
+Examples of logged events include:
+
+- `database.connection.opening`
+- `database.connection.opened`
+- `database.connection.closing`
+- `database.connection.closed`
+- `database.connection.failed`
 - `item.listed`
 - `rental.created`
 - `return.confirmed`
 
-Sensitive information such as passwords and password hashes is never logged.
+Sensitive information such as passwords and password hashes is excluded from logs.
 
-## Technology Stack
+---
 
-- **Java 17**
-- **Maven**
-- **SQLite**
-- **Password4j**
-- **Argon2id**
-- **JUnit 5**
-- **JaCoCo**
-- **Docker**
-- **Git / Gitea**
+## 🏗️ Architecture
 
-## Project Structure
+The application follows a layered architecture that separates user interaction, business logic, persistence, security, validation, and domain models.
 
 ```text
-src/
-├── main/java/com/kood/rentaltracker/
-│   ├── domain/
-│   ├── infrastructure/
-│   ├── logging/
-│   ├── repository/
-│   ├── security/
-│   ├── service/
-│   ├── validation/
-│   └── transport/
-│
-└── test/java/com/kood/rentaltracker/
-    ├── support/
-    └── test classes
+                    ┌──────────────────────┐
+                    │      Main / CLI       │
+                    │     User Interface    │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │       Services       │
+                    │                      │
+                    │  UserService         │
+                    │  ItemService         │
+                    │  RentalService       │
+                    └──────────┬───────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+       ┌─────────────┐ ┌──────────────┐ ┌──────────────┐
+       │ Validation  │ │   Security   │ │ Repositories │
+       │             │ │              │ │              │
+       │ User        │ │ Password     │ │ User         │
+       │ Item        │ │ Hasher       │ │ Item         │
+       │ Rental      │ │              │ │ Rental       │
+       └─────────────┘ └──────────────┘ └──────┬───────┘
+                                               │
+                                               ▼
+                                    ┌────────────────────┐
+                                    │       SQLite       │
+                                    │                    │
+                                    │ users              │
+                                    │ listed_items       │
+                                    │ rentals            │
+                                    └────────────────────┘
+```
 
-docs/
-└── ER_DIAGRAM.md
+---
 
-Dockerfile
-compose.yml
-docker-entrypoint.sh
-pom.xml
-README.md
-Database
+## 🗄️ Database Design
 
-The application uses SQLite with three main tables.
+The application uses SQLite with foreign-key constraints enabled.
 
-Users
+### Users
 
-Stores registered user accounts.
+Stores registered users and their securely hashed passwords.
 
-Important columns:
+| Column | Description |
+|---|---|
+| `id` | Unique user identifier |
+| `username` | Unique username |
+| `password_hash` | Argon2id password hash |
+| `created_at` | Account creation timestamp |
 
-id
-username
-password_hash
-created_at
+### Listed Items
 
-The username is unique and the password is stored as an Argon2id hash.
+Stores items made available for rental.
 
-Listed Items
+| Column | Description |
+|---|---|
+| `item_id` | Unique item identifier |
+| `owner_id` | User who owns the item |
+| `item_name` | Item name |
+| `description` | Item description |
+| `cost_per_day` | Rental price per day |
+| `status` | Current item state |
+| `created_at` | Listing creation timestamp |
 
-Stores items offered for rental.
-
-Important columns:
-
-item_id
-owner_id
-item_name
-description
-cost_per_day
-status
-created_at
-
-The owner_id references the users table.
-
-Rentals
+### Rentals
 
 Stores rental transactions.
 
-Important columns:
+| Column | Description |
+|---|---|
+| `rental_id` | Unique rental identifier |
+| `item_id` | Rented item |
+| `renter_id` | User renting the item |
+| `start_time` | Rental start time |
+| `end_time` | Expected rental end time |
+| `returned_at` | Actual return time |
+| `status` | Rental state |
 
-rental_id
-item_id
-renter_id
-start_time
-end_time
-returned_at
-status
+### Relationships
 
-The item_id references listed_items and renter_id references users.
-
-Relationships
+```text
 users
   │
-  ├── owns ────────> listed_items
-  │                       │
-  │                       │ rented through
-  │                       ▼
-  └── rents <──────── rentals
+  ├─────────────── owns ───────────────► listed_items
+  │                                          │
+  │                                          │
+  └──────────── rents ───────────────► rentals
+                                             │
+                                             │
+                                             ▼
+                                        listed_items
+```
 
-The complete ER diagram is available in:
+Foreign keys maintain relationships between users, items, and rentals.
 
-docs/ER_DIAGRAM.md
-Running Locally
+Database integrity was also verified using SQLite foreign-key checks.
 
-Use Java 17:
+---
 
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
-export PATH="$JAVA_HOME/bin:$PATH"
+## 🔄 Item State Transitions
+
+Items follow controlled state transitions:
+
+```text
+                 ┌─────────────┐
+                 │  AVAILABLE  │
+                 └──────┬──────┘
+                        │
+                     Rent
+                        │
+                        ▼
+                 ┌─────────────┐
+                 │   RENTED    │
+                 └──────┬──────┘
+                        │
+                      Return
+                        │
+                        ▼
+                 ┌─────────────┐
+                 │  AVAILABLE  │
+                 └─────────────┘
+
+AVAILABLE ───────────────► UNLISTED
+RENTED ──────────────────► UNLISTED
+UNLISTED ────────────────► AVAILABLE
+```
+
+Rental states are:
+
+- `ACTIVE`
+- `CLOSED`
+
+---
+
+## 🛠️ Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| **Java 17** | Application development |
+| **Maven** | Build and dependency management |
+| **SQLite** | Persistent relational database |
+| **JDBC** | Database connectivity |
+| **Password4j** | Argon2id password hashing |
+| **JUnit 5** | Automated testing |
+| **JaCoCo** | Code coverage |
+| **Docker** | Containerized deployment |
+| **Docker Compose** | Container orchestration |
+| **Git** | Version control |
+
+---
+
+## 📁 Project Structure
+
+```text
+rental-tracker/
+├── src/
+│   ├── main/
+│   │   └── java/com/kood/rentaltracker/
+│   │       ├── transport/
+│   │       │   └── Main.java
+│   │       │
+│   │       ├── service/
+│   │       │   ├── UserService.java
+│   │       │   ├── ItemService.java
+│   │       │   └── RentalService.java
+│   │       │
+│   │       ├── repository/
+│   │       │   ├── UserRepository.java
+│   │       │   ├── ItemRepository.java
+│   │       │   ├── RentalRepository.java
+│   │       │   ├── UserRepositoryImpl.java
+│   │       │   ├── ItemRepositoryImpl.java
+│   │       │   ├── RentalRepositoryImpl.java
+│   │       │   └── exception/
+│   │       │       ├── DatabaseOpenException.java
+│   │       │       ├── ConstraintViolationException.java
+│   │       │       ├── NotFoundException.java
+│   │       │       ├── MappingException.java
+│   │       │       └── DatabaseExceptionMapper.java
+│   │       │
+│   │       ├── domain/
+│   │       │   ├── User.java
+│   │       │   ├── Item.java
+│   │       │   ├── ItemStatus.java
+│   │       │   ├── Rental.java
+│   │       │   └── RentalStatus.java
+│   │       │
+│   │       ├── infrastructure/
+│   │       │   ├── Database.java
+│   │       │   └── DatabaseInitializer.java
+│   │       │
+│   │       ├── security/
+│   │       │   └── PasswordHasher.java
+│   │       │
+│   │       ├── validation/
+│   │       │   ├── UserValidator.java
+│   │       │   ├── ItemValidator.java
+│   │       │   └── RentalValidator.java
+│   │       │
+│   │       └── logging/
+│   │           └── AppLogger.java
+│   │
+│   └── test/
+│       └── java/com/kood/rentaltracker/
+│           ├── UserServiceTest.java
+│           ├── ItemStatusTest.java
+│           ├── RentalServiceTest.java
+│           ├── ItemServiceTest.java
+│           ├── RepositoryIntegrationTest.java
+│           ├── ExceptionTest.java
+│           ├── DatabaseExceptionMapperTest.java
+│           ├── ExceptionCoverageTest.java
+│           ├── DatabaseInitializerTest.java
+│           ├── MainIntegrationTest.java
+│           ├── AppLoggerTest.java
+│           ├── RentalValidatorTest.java
+│           └── support/
+│               └── DatabaseTestSupport.java
+│
+├── docs/
+│   └── ER_DIAGRAM.md
+│
+├── Dockerfile
+├── compose.yml
+├── docker-entrypoint.sh
+├── rental-tracker.db
+├── pom.xml
+├── .gitignore
+└── README.md
+```
+
+---
+
+## ⚙️ Requirements
+
+Before running the application locally, make sure you have:
+
+- Java 17 or later
+- Maven
+- SQLite
+- Git
+
+For containerized execution:
+
+- Docker
+- Docker Compose
+
+---
+
+## 🚀 Running Locally
+
+Clone the repository and enter the project directory:
+
+```bash
+git clone https://gitea.kood.tech/christinenyambura/multi-user-rental-tracker.git
+cd rental-tracker
+```
 
 Build the project:
 
+```bash
 mvn clean package
+```
 
 Run the application:
 
-mvn -q exec:java -Dexec.mainClass=com.kood.rentaltracker.transport.Main
-Running Tests
+```bash
+mvn exec:java -Dexec.mainClass="com.kood.rentaltracker.transport.Main"
+```
 
-Run the complete test suite:
+---
 
-mvn -q clean test
+## 🧪 Testing
 
-The test suite covers authentication, validation, services, repositories, database initialization, exception handling, logging, and integration behaviour.
+Run the complete test suite with:
 
-Test Coverage
+```bash
+mvn test
+```
 
-JaCoCo coverage is included in the project.
+The project includes unit, integration, validation, exception-handling, database, logging, and CLI integration tests.
 
-The latest coverage report achieved:
+The test suite covers areas including:
 
-100% class coverage
-89% method coverage
-75% instruction coverage
-72% line coverage
-60% branch coverage
+- User registration
+- Authentication
+- Password handling
+- Item management
+- Rental workflows
+- Return workflows
+- Validation
+- Repository operations
+- Database initialization
+- Exception mapping
+- Logging
+- Main application workflows
 
-The core domain, validation, exception handling, logging, and security components have complete coverage, with high coverage across the service and repository layers.
+---
 
-The remaining uncovered code is primarily defensive CLI and error-handling branches in Main.
+## 📊 Test Coverage
 
-The generated JaCoCo report is available under:
+JaCoCo is used to measure automated test coverage.
 
-target/site/jacoco/index.html
-Docker
+Current coverage:
+
+| Metric | Coverage |
+|---|---:|
+| Classes | **100%** |
+| Methods | **89%** |
+| Instructions | **75%** |
+| Lines | **72%** |
+| Branches | **60%** |
+
+The remaining coverage gaps are primarily defensive CLI and error-handling paths in `Main`.
+
+Generate the JaCoCo report with:
+
+```bash
+mvn test jacoco:report
+```
+
+The report is generated under:
+
+```text
+target/site/jacoco/
+```
+
+---
+
+## 🐳 Docker
 
 The application can be built and run using Docker Compose.
 
-Build and start:
+Build and start the application:
 
+```bash
 docker compose up --build
+```
 
-The SQLite database is stored in a Docker named volume so application data survives container restarts, rebuilds, and upgrades.
+The application runs interactively inside the container.
 
 Stop the application:
 
+```bash
 docker compose down
+```
 
-Start it again:
+---
 
-docker compose up
+## 💾 Database Persistence
 
-The existing persistent database is reused when the container starts again.
+SQLite data is stored in a Docker named volume:
 
-Seeded Data
+```text
+rental_tracker_data
+```
 
-The repository includes a seeded SQLite database containing multiple user accounts and listed items owned by different users.
+The container uses:
 
-The seeded data supports demonstration of:
+```text
+/app/data/rental-tracker.db
+```
 
-Multiple accounts
-Different item owners
-Available items
-Rented items
-Rental history
-Ownership enforcement
+On the first startup, the seeded database is copied into the persistent volume.
 
-Example demo accounts include:
+On subsequent startups, the existing database is reused.
 
-christine
-james
-Alex
-chrstine
-Main Menu
+This allows application data to survive container recreation.
 
-After authentication, the application provides:
+---
 
+## 🌱 Seeded Data
+
+The project includes a seeded SQLite database containing multiple users and rental listings to make it possible to test multi-user workflows immediately.
+
+The seed database contains:
+
+- Multiple registered users
+- Multiple item owners
+- Multiple rental listings
+- Different item states
+
+Demo credentials are intentionally not documented in this README.
+
+---
+
+## 🖥️ Application Menu
+
+After authentication, users can access the main rental menu:
+
+```text
 === Rental tracker ===
 1) List an item
 2) View my inventory
@@ -265,81 +506,211 @@ After authentication, the application provides:
 4) Confirm a return
 5) Exit
 >
+```
 
-The logged-in user's account is automatically used when listing items, renting items, and performing ownership checks.
+### List an Item
 
-Example Workflow
-Register or log in as a user.
-List an item.
-Log in using another account.
-Browse available listings.
-Select an item owned by another user.
-Enter the rental duration.
-The item becomes rented.
-The owner can confirm the return.
-The rental is closed and the item becomes available again.
-Error Handling
+The currently authenticated user becomes the owner automatically.
 
-The application separates user-facing messages from internal diagnostic information.
+### View My Inventory
 
-Users receive concise and readable messages such as:
+Displays items owned by the currently authenticated user.
 
-Invalid username or password.
+### Browse Listings
 
-or:
+Displays available items belonging to other users.
 
-Rental duration must be greater than zero.
+Listings are paginated to keep the CLI manageable.
 
-Internal exception details are recorded in the application log instead of exposing database errors or implementation details to the user.
+### Confirm a Return
 
-Recoverable errors return the user to the appropriate menu.
+Allows the renter to confirm the return of an active rental.
 
-Database startup failures are treated as fatal and cause the application to exit after logging the internal failure.
+### Exit
 
-Security Considerations
-Passwords are hashed using Argon2id.
-Plaintext passwords are not stored in the database.
-Password hashes are not stored in the User domain object.
-Passwords and password hashes are never written to logs.
-Ownership is enforced in the service layer.
-Invalid input is validated before repository/database operations.
-SQLite foreign-key constraints are enabled.
-Database errors are converted into application-level exceptions.
-User-facing messages do not expose raw SQLite errors or internal implementation details.
-Git and Collaboration
+Terminates the current application session.
 
-The project uses Git with the Kood Gitea repository.
+---
 
-Development was organized around focused commits covering features such as:
+## 🔁 Example Rental Workflow
 
-Authentication
-Password security
-Validation
-Ownership enforcement
-Rental workflows
-Exception handling
-Structured logging
-Database improvements
-Docker support
-Testing and coverage
-Documentation
+A typical rental flow is:
 
-The repository history provides a record of the project's development and review workflow.
+```text
+1. User registers
+        │
+        ▼
+2. User logs in
+        │
+        ▼
+3. User lists an item
+        │
+        ▼
+4. Another user logs in
+        │
+        ▼
+5. User browses available listings
+        │
+        ▼
+6. User selects an item
+        │
+        ▼
+7. User rents the item
+        │
+        ▼
+8. Item becomes RENTED
+        │
+        ▼
+9. User confirms the return
+        │
+        ▼
+10. Rental becomes CLOSED
+        │
+        ▼
+11. Item becomes AVAILABLE
+```
 
-Project Goal
+---
 
-The goal of the project is to provide a secure, maintainable multi-user rental application while demonstrating practical software engineering principles including:
+## 🛡️ Security Considerations
 
-Object-oriented programming
-Layered architecture
-Repository and service patterns
-Input validation
-Authentication and password security
-Ownership and business-rule enforcement
-Exception handling
-Automated testing
-Code coverage
-Structured logging
-Database persistence
-Docker containerization
-Collaborative Git workflows
+Security was considered throughout the application design.
+
+### Password Protection
+
+Passwords are hashed using **Argon2id** before being stored in the database.
+
+The application never stores plaintext passwords.
+
+### Ownership Enforcement
+
+Users cannot arbitrarily modify another user's inventory through the service layer.
+
+### Rental Restrictions
+
+The application prevents invalid rental operations such as:
+
+- Renting an unavailable item
+- Renting an item owned by the current user
+- Confirming invalid or already-closed rentals
+
+### Input Validation
+
+User-controlled values are validated before reaching persistence operations.
+
+### Database Integrity
+
+Foreign keys and database constraints are used to maintain relationships and prevent invalid records.
+
+### Sensitive Logging
+
+Passwords and password hashes are excluded from application logs.
+
+---
+
+## ⚠️ Error Handling
+
+The application uses dedicated exception types to separate different failure conditions.
+
+Examples include:
+
+- `DatabaseOpenException`
+- `ConstraintViolationException`
+- `NotFoundException`
+- `MappingException`
+
+Database exceptions are translated through:
+
+```text
+DatabaseExceptionMapper
+```
+
+This keeps low-level database failures from leaking directly into higher application layers.
+
+---
+
+## 📝 Logging
+
+Application logging is handled by:
+
+```text
+AppLogger
+```
+
+Log entries contain structured information such as:
+
+```text
+timestamp
+level
+event
+context
+```
+
+The logging system records important application events while avoiding sensitive authentication information.
+
+---
+
+## 🤝 Git & Collaboration
+
+The project uses Git for version control and collaborative development.
+
+The repository contains separate concerns for:
+
+- Domain modelling
+- Business logic
+- Persistence
+- Validation
+- Security
+- Logging
+- Testing
+- Deployment
+
+Changes are committed incrementally so that project development and debugging can be tracked throughout the implementation process.
+
+---
+
+## 📚 Documentation
+
+Additional technical documentation is available under:
+
+```text
+docs/
+```
+
+Including the database/entity relationship documentation:
+
+```text
+docs/ER_DIAGRAM.md
+```
+
+---
+
+## 🎯 Project Goal
+
+The goal of the Multi-User Rental Tracker is to demonstrate how a real-world multi-user application can be designed with:
+
+- Secure authentication
+- Clear application architecture
+- Relational data modelling
+- Ownership and authorization rules
+- Input validation
+- Exception handling
+- Automated testing
+- Code coverage
+- Structured logging
+- Containerized deployment
+- Persistent database storage
+
+The project combines software development practices with security-conscious engineering to create a maintainable and reliable rental management system.
+
+---
+
+## 👩‍💻 Team
+
+**Christine Nyambura** — Team Leader  
+**Zipporah Chibalonza** — Member  
+**Victor Kiama** — Member
+
+---
+
+**Built with Java 17, Maven, SQLite, Docker, and a security-first approach.**
