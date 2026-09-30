@@ -1,9 +1,5 @@
 target/
 
-!target/site/
-!target/site/jacoco/
-!target/site/jacoco/**
-
 # Local runtime logs and database migration backups
 *.log
 *.db.backup
