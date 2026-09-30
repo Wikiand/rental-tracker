@@ -23,10 +23,16 @@ public final class Database {
     }
 
     public static Connection connect() {
-        String url = System.getProperty(
-                "rental.tracker.db.url",
-                DEFAULT_URL
+        String url = System.getenv(
+                "RENTAL_TRACKER_DB_URL"
         );
+
+        if (url == null || url.isBlank()) {
+            url = System.getProperty(
+                    "rental.tracker.db.url",
+                    DEFAULT_URL
+            );
+        }
 
         LOGGER.info(
                 "database.connection.opening",

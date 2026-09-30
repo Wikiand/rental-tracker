@@ -1,0 +1,16 @@
+services:
+  rental-tracker:
+    build: .
+    container_name: rental-tracker
+    stdin_open: true
+    tty: true
+    environment:
+      RENTAL_TRACKER_DB_URL: jdbc:sqlite:/app/data/rental-tracker.db
+      RENTAL_TRACKER_LOG_PATH: /app/logs/rental-tracker.log
+    volumes:
+      - rental_tracker_data:/app/data
+      - rental_tracker_logs:/app/logs
+
+volumes:
+  rental_tracker_data:
+  rental_tracker_logs:

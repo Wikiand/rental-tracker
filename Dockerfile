@@ -24,4 +24,4 @@ RUN chmod +x /app/docker-entrypoint.sh
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
-CMD ["java", "-cp", "/app/classes:/app/lib/*", "-Drental.tracker.db.url=jdbc:sqlite:/app/data/rental-tracker.db", "com.kood.rentaltracker.transport.Main"]
+CMD ["java", "-cp", "/app/classes:/app/lib/*", "com.kood.rentaltracker.transport.Main"]

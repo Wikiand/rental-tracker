@@ -10,7 +10,18 @@ import java.time.ZoneOffset;
 public class AppLogger {
 
     private static final Path LOG_FILE =
-            Path.of("rental-tracker.log");
+            resolveLogFile();
+
+    private static Path resolveLogFile() {
+        String configuredPath =
+                System.getenv("RENTAL_TRACKER_LOG_PATH");
+
+        if (configuredPath == null || configuredPath.isBlank()) {
+            return Path.of("rental-tracker.log");
+        }
+
+        return Path.of(configuredPath);
+    }
 
     public void info(
             String event,
