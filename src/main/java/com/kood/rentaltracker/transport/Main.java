@@ -1,5 +1,7 @@
 package com.kood.rentaltracker.transport;
 
+import com.kood.rentaltracker.importer.DatabaseImporter;
+import com.kood.rentaltracker.importer.ImportResult;
 import com.kood.rentaltracker.domain.Item;
 import com.kood.rentaltracker.domain.ItemStatus;
 import com.kood.rentaltracker.domain.Rental;
@@ -21,6 +23,27 @@ public class Main {
     private static final int PAGE_SIZE = 5;
 
     public static void main(String[] args) {
+        if (args.length == 2 && args[0].equals("import")) {
+            ImportResult result = new DatabaseImporter().importDirectory(
+                    java.nio.file.Path.of(args[1])
+            );
+            System.out.printf(
+                    "Import complete: inserted=%d, matched=%d, rejected=%d%n",
+                    result.getInserted(),
+                    result.getMatched(),
+                    result.getRejected()
+            );
+
+            for (String rejection :
+                    result.getRejectionDetails()) {
+
+                System.out.println(
+                        "Rejected: " + rejection
+                );
+            }
+
+            return;
+        }
         DatabaseInitializer.initialize();
 
         try (Scanner scanner = new Scanner(System.in)) {

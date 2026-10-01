@@ -1,0 +1,4 @@
+id,username,password_hash,created_at
+50,alice,SHOULD_NOT_REPLACE,2099-01-01T00:00:00
+51,newuser,new-hash,2026-10-01T10:00:00
+52,,missing-username,2026-10-01T10:00:00

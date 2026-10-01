@@ -1,0 +1,4 @@
+item_id,owner_id,item_name,description,cost_per_day,status,created_at
+100,1,Ladder,SHOULD_NOT_REPLACE,999.0,rented,2099-01-01T00:00:00
+101,51,New Camera,Imported camera,25.0,available,2026-10-01T10:00:00
+102,999,Unknown Item,Unresolvable owner,15.0,available,2026-10-01T10:00:00
