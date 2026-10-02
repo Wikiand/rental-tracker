@@ -1,0 +1,5 @@
+id,username,password_hash,created_at
+1,christine,source-hash-1,2026-09-01T10:00:00
+2,james,source-hash-2,2026-09-01T10:05:00
+15,sourceuser,source-hash-15,2026-10-01T10:00:00
+25,mergeuser,merge-hash-25,2026-10-02T10:00:00

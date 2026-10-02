@@ -110,37 +110,59 @@ public class DatabaseImporter {
                 String[] row = rows.get(i);
 
                 if (row.length != 4) {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(
+                            "invalid record"
+                    );
                 }
 
-                int sourceId = parseRequiredInt(row[0], "id");
-                String username = parseRequiredText(row[1], "username");
-                String passwordHash = parseRequiredText(row[2], "password_hash");
-                String createdAt = parseRequiredText(row[3], "created_at");
+                // READ
+                int sourceId =
+                        parseRequiredInt(row[0], "id");
 
+                String username =
+                        parseRequiredText(row[1], "username");
+
+                // MATCHED OR NEW
                 Integer localId =
                         findUserId(connection, username);
 
                 if (localId != null) {
                     context.mapUser(sourceId, localId);
                     result.incrementMatched();
-                } else {
-                    localId = insertUser(
-                            connection,
-                            username,
-                            passwordHash,
-                            createdAt
-                    );
-
-                    context.mapUser(sourceId, localId);
-                    result.incrementInserted();
+                    continue;
                 }
+
+                // VALIDATE NEW RECORD
+                String passwordHash =
+                        parseRequiredText(
+                                row[2],
+                                "password_hash"
+                        );
+
+                String createdAt =
+                        parseRequiredText(
+                                row[3],
+                                "created_at"
+                        );
+
+                // INSERT
+                localId = insertUser(
+                        connection,
+                        username,
+                        passwordHash,
+                        createdAt
+                );
+
+                context.mapUser(sourceId, localId);
+                result.incrementInserted();
 
             } catch (IllegalArgumentException e) {
                 result.addRejection(
                         file.getFileName().toString(),
                         i + 1,
-                        e.getMessage() == null ? "invalid record" : e.getMessage()
+                        e.getMessage() == null
+                                ? "invalid record"
+                                : e.getMessage()
                 );
             }
         }
@@ -177,9 +199,12 @@ public class DatabaseImporter {
                 String[] row = rows.get(i);
 
                 if (row.length != 7) {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(
+                            "invalid record"
+                    );
                 }
 
+                // READ
                 int sourceItemId =
                         parseRequiredInt(row[0], "item_id");
 
@@ -199,20 +224,12 @@ public class DatabaseImporter {
                 }
 
                 String itemName =
-                        parseRequiredText(row[2], "item_name");
+                        parseRequiredText(
+                                row[2],
+                                "item_name"
+                        );
 
-                String description =
-                        parseRequiredText(row[3], "description");
-
-                double costPerDay =
-                        parseRequiredDouble(row[4], "cost_per_day");
-
-                String status =
-                        parseRequiredText(row[5], "status");
-
-                String createdAt =
-                        parseRequiredText(row[6], "created_at");
-
+                // MATCHED OR NEW
                 Integer localItemId =
                         findItemId(
                                 connection,
@@ -225,33 +242,60 @@ public class DatabaseImporter {
                             sourceItemId,
                             localItemId
                     );
-
                     result.incrementMatched();
-
-                } else {
-                    localItemId = insertItem(
-                            connection,
-                            localOwnerId,
-                            itemName,
-                            description,
-                            costPerDay,
-                            status,
-                            createdAt
-                    );
-
-                    context.mapItem(
-                            sourceItemId,
-                            localItemId
-                    );
-
-                    result.incrementInserted();
+                    continue;
                 }
+
+                // VALIDATE NEW RECORD
+                String description =
+                        parseRequiredText(
+                                row[3],
+                                "description"
+                        );
+
+                double costPerDay =
+                        parseRequiredDouble(
+                                row[4],
+                                "cost_per_day"
+                        );
+
+                String status =
+                        parseRequiredText(
+                                row[5],
+                                "status"
+                        );
+
+                String createdAt =
+                        parseRequiredText(
+                                row[6],
+                                "created_at"
+                        );
+
+                // INSERT
+                localItemId = insertItem(
+                        connection,
+                        localOwnerId,
+                        itemName,
+                        description,
+                        costPerDay,
+                        status,
+                        createdAt
+                );
+
+                context.mapItem(
+                        sourceItemId,
+                        localItemId
+                );
+
+                result.incrementInserted();
 
             } catch (IllegalArgumentException e) {
                 result.addRejection(
                         file.getFileName().toString(),
                         i + 1,
-                        e.getMessage() == null ? "invalid record" : e.getMessage()
+                        e.getMessage() == null
+                                ? "invalid record"
+                                : e.getMessage()
                 );
             }
         }
@@ -288,17 +332,29 @@ public class DatabaseImporter {
                 String[] row = rows.get(i);
 
                 if (row.length != 7) {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(
+                            "invalid record"
+                    );
                 }
 
+                // READ
                 int sourceRentalId =
-                        parseRequiredInt(row[0], "rental_id");
+                        parseRequiredInt(
+                                row[0],
+                                "rental_id"
+                        );
 
                 int sourceItemId =
-                        parseRequiredInt(row[1], "item_id");
+                        parseRequiredInt(
+                                row[1],
+                                "item_id"
+                        );
 
                 int sourceRenterId =
-                        parseRequiredInt(row[2], "renter_id");
+                        parseRequiredInt(
+                                row[2],
+                                "renter_id"
+                        );
 
                 Integer localItemId =
                         context.resolveItem(sourceItemId);
@@ -317,17 +373,18 @@ public class DatabaseImporter {
                 }
 
                 String startTime =
-                        parseRequiredText(row[3], "start_time");
+                        parseRequiredText(
+                                row[3],
+                                "start_time"
+                        );
 
                 String endTime =
-                        parseRequiredText(row[4], "end_time");
+                        parseRequiredText(
+                                row[4],
+                                "end_time"
+                        );
 
-                String returnedAt =
-                        parseOptionalText(row[5]);
-
-                String status =
-                        parseRequiredText(row[6], "status");
-
+                // MATCHED OR NEW
                 Integer localRentalId =
                         findRentalId(
                                 connection,
@@ -339,25 +396,39 @@ public class DatabaseImporter {
 
                 if (localRentalId != null) {
                     result.incrementMatched();
-                } else {
-                    insertRental(
-                            connection,
-                            localItemId,
-                            localRenterId,
-                            startTime,
-                            endTime,
-                            returnedAt,
-                            status
-                    );
-
-                    result.incrementInserted();
+                    continue;
                 }
+
+                // VALIDATE NEW RECORD
+                String returnedAt =
+                        parseOptionalText(row[5]);
+
+                String status =
+                        parseRequiredText(
+                                row[6],
+                                "status"
+                        );
+
+                // INSERT
+                insertRental(
+                        connection,
+                        localItemId,
+                        localRenterId,
+                        startTime,
+                        endTime,
+                        returnedAt,
+                        status
+                );
+
+                result.incrementInserted();
 
             } catch (IllegalArgumentException e) {
                 result.addRejection(
                         file.getFileName().toString(),
                         i + 1,
-                        e.getMessage() == null ? "invalid record" : e.getMessage()
+                        e.getMessage() == null
+                                ? "invalid record"
+                                : e.getMessage()
                 );
             }
         }

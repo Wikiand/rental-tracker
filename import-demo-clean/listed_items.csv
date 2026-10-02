@@ -1,0 +1,4 @@
+item_id,owner_id,item_name,description,cost_per_day,status,created_at
+1,1,Ladder,"Source ladder description",999.0,available,2026-09-01T11:00:00
+15,15,"Source Camera","Camera from second database",25.0,available,2026-10-01T11:00:00
+25,25,"Merge Laptop","Laptop from second database",30.0,available,2026-10-02T10:05:00
