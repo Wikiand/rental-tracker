@@ -56,6 +56,11 @@ public class DatabaseInitializer {
                         FOREIGN KEY (renter_id)
                             REFERENCES users(id)
                     );
+
+                    CREATE UNIQUE INDEX IF NOT EXISTS
+                        idx_rentals_one_active_per_item
+                    ON rentals(item_id)
+                    WHERE status = 'active';
                     """);
 
         } catch (SQLException e) {

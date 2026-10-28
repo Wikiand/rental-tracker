@@ -590,6 +590,33 @@ class RepositoryIntegrationTest {
         assertNull(loaded.getListingDate());
     }
 
+    @Test
+    void rejectsSecondActiveRentalForSameItem() {
+        User owner = createUser("owner");
+        User firstRenter = createUser("renter-one");
+        User secondRenter = createUser("renter-two");
+
+        Item item = itemRepository.save(
+                createItem(owner.getId(), "Camera")
+        );
+
+        rentalRepository.save(
+                createRental(item.getId(), firstRenter.getId())
+        );
+
+        assertThrows(
+                ConstraintViolationException.class,
+                () -> rentalRepository.save(
+                        createRental(item.getId(), secondRenter.getId())
+                )
+        );
+
+        assertEquals(
+                1,
+                rentalRepository.findActiveByOwnerId(owner.getId()).size()
+        );
+    }
+
     private static final String TEST_PASSWORD_HASH =
             "$argon2id$v=19$m=1024,t=3,p=2$test-salt$test-hash";
 
