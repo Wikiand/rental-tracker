@@ -5,6 +5,7 @@ import com.kood.rentaltracker.domain.ItemStatus;
 import com.kood.rentaltracker.domain.Rental;
 import com.kood.rentaltracker.domain.RentalStatus;
 import com.kood.rentaltracker.domain.User;
+import com.kood.rentaltracker.infrastructure.AtomicRentalOperations;
 import com.kood.rentaltracker.logging.AppLogger;
 import com.kood.rentaltracker.repository.ItemRepository;
 import com.kood.rentaltracker.repository.RentalRepository;
@@ -21,6 +22,7 @@ public class RentalService {
     private final UserRepository userRepository;
     private final RentalValidator rentalValidator;
     private final AppLogger logger;
+    private AtomicRentalOperations atomicOperations;
 
     public RentalService(
             RentalRepository rentalRepository,
@@ -63,6 +65,18 @@ public class RentalService {
         this.userRepository = userRepository;
         this.rentalValidator = rentalValidator;
         this.logger = logger;
+    }
+
+    public RentalService(
+            RentalRepository rentalRepository,
+            ItemRepository itemRepository,
+            UserRepository userRepository,
+            AtomicRentalOperations atomicOperations
+    ) {
+        this(rentalRepository, itemRepository, userRepository);
+        this.atomicOperations = java.util.Objects.requireNonNull(
+                atomicOperations
+        );
     }
 
     public Rental recordRental(
@@ -149,13 +163,18 @@ public class RentalService {
                 RentalStatus.ACTIVE
         );
 
-        Rental savedRental =
-                rentalRepository.save(rental);
+        Rental savedRental;
 
-        itemRepository.updateStatus(
-                item.getId(),
-                ItemStatus.RENTED
-        );
+        if (atomicOperations != null) {
+            savedRental = atomicOperations.createRental(rental);
+        } else {
+            savedRental = rentalRepository.save(rental);
+
+            itemRepository.updateStatus(
+                    item.getId(),
+                    ItemStatus.RENTED
+            );
+        }
 
         item.setStatus(ItemStatus.RENTED);
 
@@ -257,24 +276,32 @@ public class RentalService {
         LocalDateTime returnedAt =
                 LocalDateTime.now();
 
-        rentalRepository.closeRental(
-                rental.getId(),
-                returnedAt.toString()
-        );
-
-        rental.setReturnedAt(returnedAt);
-        rental.setStatus(RentalStatus.CLOSED);
-
         ItemStatus returnStatus =
                 item.getStatus() == ItemStatus.UNLISTED
                         ? ItemStatus.UNLISTED
                         : ItemStatus.AVAILABLE;
 
-        itemRepository.updateStatus(
-                item.getId(),
-                returnStatus
-        );
+        if (atomicOperations != null) {
+            atomicOperations.confirmReturn(
+                    rental.getId(),
+                    item.getId(),
+                    returnedAt,
+                    returnStatus
+            );
+        } else {
+            rentalRepository.closeRental(
+                    rental.getId(),
+                    returnedAt.toString()
+            );
 
+            itemRepository.updateStatus(
+                    item.getId(),
+                    returnStatus
+            );
+        }
+
+        rental.setReturnedAt(returnedAt);
+        rental.setStatus(RentalStatus.CLOSED);
         item.setStatus(returnStatus);
 
         logger.info(

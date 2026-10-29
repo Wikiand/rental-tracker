@@ -196,14 +196,26 @@ public class ItemRepositoryImpl implements ItemRepository {
 
     @Override
     public void updateStatusValue(int itemId, String status) {
+        try (Connection connection = Database.connect()) {
+            updateStatusValue(connection, itemId, status);
+        } catch (SQLException e) {
+            throw DatabaseExceptionMapper.map(e);
+        }
+    }
+
+    public void updateStatusValue(
+            Connection connection,
+            int itemId,
+            String status
+    ) throws SQLException {
         String sql = """
                 UPDATE listed_items
                 SET status = ?
                 WHERE item_id = ?
                 """;
 
-        try (Connection connection = Database.connect();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
             statement.setString(1, status);
             statement.setInt(2, itemId);
@@ -215,9 +227,40 @@ public class ItemRepositoryImpl implements ItemRepository {
                         "Item not found: " + itemId
                 );
             }
+        }
+    }
 
-        } catch (SQLException e) {
-            throw DatabaseExceptionMapper.map(e);
+    public void updateStatusIfCurrent(
+            Connection connection,
+            int itemId,
+            ItemStatus expectedStatus,
+            ItemStatus newStatus
+    ) throws SQLException {
+        String sql = """
+                UPDATE listed_items
+                SET status = ?
+                WHERE item_id = ?
+                  AND status = ?
+                """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(
+                    1,
+                    newStatus.name().toLowerCase()
+            );
+            statement.setInt(2, itemId);
+            statement.setString(
+                    3,
+                    expectedStatus.name().toLowerCase()
+            );
+
+            if (statement.executeUpdate() != 1) {
+                throw new IllegalStateException(
+                        "Item status has changed: " + itemId
+                );
+            }
         }
     }
 

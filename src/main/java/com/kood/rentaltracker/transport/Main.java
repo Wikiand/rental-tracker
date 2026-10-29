@@ -6,6 +6,8 @@ import com.kood.rentaltracker.domain.Item;
 import com.kood.rentaltracker.domain.ItemStatus;
 import com.kood.rentaltracker.domain.Rental;
 import com.kood.rentaltracker.domain.User;
+import com.kood.rentaltracker.infrastructure.AtomicRentalOperations;
+import com.kood.rentaltracker.infrastructure.RentalTransactionManager;
 import com.kood.rentaltracker.infrastructure.DatabaseInitializer;
 import com.kood.rentaltracker.repository.ItemRepositoryImpl;
 import com.kood.rentaltracker.repository.RentalRepositoryImpl;
@@ -66,11 +68,19 @@ public class Main {
             ItemService itemService =
                     new ItemService(itemRepository);
 
+            AtomicRentalOperations atomicOperations =
+                    new AtomicRentalOperations(
+                            new RentalTransactionManager(),
+                            rentalRepository,
+                            itemRepository
+                    );
+
             RentalService rentalService =
                     new RentalService(
                             rentalRepository,
                             itemRepository,
-                            userRepository
+                            userRepository,
+                            atomicOperations
                     );
 
             User currentUser =

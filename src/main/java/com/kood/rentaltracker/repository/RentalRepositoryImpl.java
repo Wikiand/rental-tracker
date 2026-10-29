@@ -20,14 +20,22 @@ public class RentalRepositoryImpl implements RentalRepository {
 
     @Override
     public Rental save(Rental rental) {
+        try (Connection connection = Database.connect()) {
+            return save(connection, rental);
+        } catch (SQLException e) {
+            throw DatabaseExceptionMapper.map(e);
+        }
+    }
+
+    public Rental save(Connection connection, Rental rental)
+            throws SQLException {
         String sql = """
                 INSERT INTO rentals
                 (item_id, renter_id, start_time, end_time, returned_at, status)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """;
 
-        try (Connection connection = Database.connect();
-             PreparedStatement statement = connection.prepareStatement(
+        try (PreparedStatement statement = connection.prepareStatement(
                      sql,
                      Statement.RETURN_GENERATED_KEYS
              )) {
@@ -68,9 +76,6 @@ public class RentalRepositoryImpl implements RentalRepository {
             }
 
             throw new RuntimeException("Failed to create rental");
-
-        } catch (SQLException e) {
-            throw DatabaseExceptionMapper.map(e);
         }
     }
 
@@ -149,6 +154,18 @@ public class RentalRepositoryImpl implements RentalRepository {
 
     @Override
     public void closeRental(int rentalId, String returnedAt) {
+        try (Connection connection = Database.connect()) {
+            closeRental(connection, rentalId, returnedAt);
+        } catch (SQLException e) {
+            throw DatabaseExceptionMapper.map(e);
+        }
+    }
+
+    public void closeRental(
+            Connection connection,
+            int rentalId,
+            String returnedAt
+    ) throws SQLException {
         String sql = """
                 UPDATE rentals
                 SET returned_at = ?,
@@ -157,8 +174,8 @@ public class RentalRepositoryImpl implements RentalRepository {
                   AND status = 'active'
                 """;
 
-        try (Connection connection = Database.connect();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
             statement.setString(1, returnedAt);
             statement.setInt(2, rentalId);
@@ -166,13 +183,40 @@ public class RentalRepositoryImpl implements RentalRepository {
             int updated = statement.executeUpdate();
 
             if (updated == 0) {
-                throw new RuntimeException(
+                throw new IllegalStateException(
                         "Active rental not found: " + rentalId
                 );
             }
+        }
+    }
 
-        } catch (SQLException e) {
-            throw DatabaseExceptionMapper.map(e);
+    public void closeRentalForItem(
+            Connection connection,
+            int rentalId,
+            int itemId,
+            String returnedAt
+    ) throws SQLException {
+        String sql = """
+                UPDATE rentals
+                SET returned_at = ?,
+                    status = 'closed'
+                WHERE rental_id = ?
+                  AND item_id = ?
+                  AND status = 'active'
+                """;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(1, returnedAt);
+            statement.setInt(2, rentalId);
+            statement.setInt(3, itemId);
+
+            if (statement.executeUpdate() != 1) {
+                throw new IllegalStateException(
+                        "Active rental not found for item: " + itemId
+                );
+            }
         }
     }
 
