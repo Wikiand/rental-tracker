@@ -572,4 +572,16 @@ JaCoCo is skipped when necessary because the current Java runtime may be newer t
 
 ---
 
+## 👥 Team
+
+This project was developed collaboratively.
+
+| Contributor | Role |
+|---|---|
+| Christine Nyambura | Team Leader |
+| Zipporah Chibalonza | Team Member |
+| Victor Kiama | Team Member |
+
+---
+
 **Built with Java 17, Maven, SQLite, Docker, and a security-first approach.**
