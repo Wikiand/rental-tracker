@@ -565,4 +565,3 @@ class DatabaseImporterTest {
             String status
     ) {}
 }
-
