@@ -67,38 +67,6 @@ All application data is stored in SQLite, allowing users, items, renters, and re
 
 ---
 
-## Screenshots
-
-### Application Launch
-
-![Rental Tracker screenshot 1](docs/screenshots/screenshot-1.png)
-
-### User and Inventory Flow
-
-![Rental Tracker screenshot 2](docs/screenshots/screenshot-2.png)
-
-### Item Management
-
-![Rental Tracker screenshot 3](docs/screenshots/screenshot-3.png)
-
-### Item Details
-
-![Rental Tracker screenshot 4](docs/screenshots/screenshot-4.png)
-
-### Rental Flow
-
-![Rental Tracker screenshot 5](docs/screenshots/screenshot-5.png)
-
-### Rental Confirmation
-
-![Rental Tracker screenshot 6](docs/screenshots/screenshot-6.png)
-
-### Return and Final State
-
-![Rental Tracker screenshot 7](docs/screenshots/screenshot-7.png)
-
----
-
 ## Architecture
 
 The application follows a layered architecture where each layer has a clearly defined responsibility.
@@ -408,15 +376,7 @@ rental-tracker/
 │                   └── rentaltracker/
 │
 ├── docs/
-│   ├── er-diagram.png
-│   └── screenshots/
-│       ├── screenshot-1.png
-│       ├── screenshot-2.png
-│       ├── screenshot-3.png
-│       ├── screenshot-4.png
-│       ├── screenshot-5.png
-│       ├── screenshot-6.png
-│       └── screenshot-7.png
+│   └── er-diagram.png
 │
 ├── pom.xml
 ├── rental-tracker.db
