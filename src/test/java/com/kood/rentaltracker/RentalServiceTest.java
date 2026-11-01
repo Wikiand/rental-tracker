@@ -739,6 +739,25 @@ class RentalServiceTest {
         }
 
         @Override
+        public void updateStatusIfCurrent(
+                int itemId,
+                ItemStatus expectedStatus,
+                ItemStatus newStatus
+        ) {
+            if (item == null || item.getId() != itemId) {
+                throw new IllegalStateException("Item not found");
+            }
+
+            if (item.getStatus() != expectedStatus) {
+                throw new IllegalStateException(
+                        "Item status has changed: " + itemId
+                );
+            }
+
+            item.setStatus(newStatus);
+        }
+
+        @Override
         public void updateStatusValue(
                 int itemId,
                 String status

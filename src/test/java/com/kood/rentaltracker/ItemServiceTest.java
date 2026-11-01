@@ -207,6 +207,23 @@ class ItemServiceTest {
     }
 
     @Test
+    void rejectsStatusUpdateWhenDatabaseStatusHasChanged() {
+        FakeItemRepository repository = new FakeItemRepository();
+        repository.statusChangedExternally = true;
+
+        Item item = createItem();
+        ItemService service = new ItemService(repository);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.changeStatus(item, ItemStatus.UNLISTED)
+        );
+
+        assertEquals(ItemStatus.AVAILABLE, item.getStatus());
+        assertNull(repository.updatedStatus);
+    }
+
+    @Test
     void rejectsNullName() {
         ItemService service =
                 new ItemService(
@@ -649,6 +666,7 @@ class ItemServiceTest {
 
         private Item savedItem;
         private ItemStatus updatedStatus;
+        private boolean statusChangedExternally;
         private List<Item> items = List.of();
 
         @Override
@@ -715,6 +733,21 @@ class ItemServiceTest {
                 ItemStatus status
         ) {
             updatedStatus = status;
+        }
+
+        @Override
+        public void updateStatusIfCurrent(
+                int itemId,
+                ItemStatus expectedStatus,
+                ItemStatus newStatus
+        ) {
+            if (statusChangedExternally) {
+                throw new IllegalStateException(
+                        "Item status has changed: " + itemId
+                );
+            }
+
+            updatedStatus = newStatus;
         }
 
         @Override

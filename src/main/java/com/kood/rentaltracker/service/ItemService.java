@@ -144,8 +144,11 @@ public class ItemService {
                 nextStatus
         );
 
-        itemRepository.updateStatus(
+        ItemStatus expectedStatus = item.getStatus();
+
+        itemRepository.updateStatusIfCurrent(
                 item.getId(),
+                expectedStatus,
                 nextStatus
         );
 
@@ -190,8 +193,11 @@ public class ItemService {
                 nextStatus
         );
 
-        itemRepository.updateStatus(
+        ItemStatus expectedStatus = item.getStatus();
+
+        itemRepository.updateStatusIfCurrent(
                 item.getId(),
+                expectedStatus,
                 nextStatus
         );
 

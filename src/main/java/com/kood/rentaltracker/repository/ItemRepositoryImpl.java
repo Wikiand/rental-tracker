@@ -230,6 +230,24 @@ public class ItemRepositoryImpl implements ItemRepository {
         }
     }
 
+    @Override
+    public void updateStatusIfCurrent(
+            int itemId,
+            ItemStatus expectedStatus,
+            ItemStatus newStatus
+    ) {
+        try (Connection connection = Database.connect()) {
+            updateStatusIfCurrent(
+                    connection,
+                    itemId,
+                    expectedStatus,
+                    newStatus
+            );
+        } catch (SQLException e) {
+            throw DatabaseExceptionMapper.map(e);
+        }
+    }
+
     public void updateStatusIfCurrent(
             Connection connection,
             int itemId,

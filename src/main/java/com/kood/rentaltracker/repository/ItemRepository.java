@@ -28,6 +28,12 @@ public interface ItemRepository {
             ItemStatus status
     );
 
+    void updateStatusIfCurrent(
+            int itemId,
+            ItemStatus expectedStatus,
+            ItemStatus newStatus
+    );
+
     void updateStatusValue(
             int itemId,
             String status

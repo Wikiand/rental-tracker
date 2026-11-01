@@ -232,6 +232,57 @@ class RepositoryIntegrationTest {
     }
 
     @Test
+    void conditionalItemStatusUpdateSucceedsWhenExpectedStatusMatches() {
+        User owner = createUser("conditional-owner");
+
+        Item item = itemRepository.save(
+                createItem(owner.getId(), "Ladder")
+        );
+
+        itemRepository.updateStatusIfCurrent(
+                item.getId(),
+                ItemStatus.AVAILABLE,
+                ItemStatus.UNLISTED
+        );
+
+        Item updated = itemRepository
+                .findById(item.getId())
+                .orElseThrow();
+
+        assertEquals(ItemStatus.UNLISTED, updated.getStatus());
+    }
+
+    @Test
+    void conditionalItemStatusUpdateRejectsStaleStatus() {
+        User owner = createUser("stale-owner");
+
+        Item item = itemRepository.save(
+                createItem(owner.getId(), "Camera")
+        );
+
+        // Simulate another operation changing the database first.
+        itemRepository.updateStatus(
+                item.getId(),
+                ItemStatus.RENTED
+        );
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> itemRepository.updateStatusIfCurrent(
+                        item.getId(),
+                        ItemStatus.AVAILABLE,
+                        ItemStatus.UNLISTED
+                )
+        );
+
+        Item unchanged = itemRepository
+                .findById(item.getId())
+                .orElseThrow();
+
+        assertEquals(ItemStatus.RENTED, unchanged.getStatus());
+    }
+
+    @Test
     void rentalInsertAndQueriesWork() {
         User owner = createUser("christine");
         User renter = createUser("james");
