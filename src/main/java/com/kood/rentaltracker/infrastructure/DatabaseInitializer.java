@@ -1,6 +1,6 @@
 package com.kood.rentaltracker.infrastructure;
 
-import com.kood.rentaltracker.repository.exception.ConstraintViolationException;
+import com.kood.rentaltracker.repository.exception.DatabaseExceptionMapper;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -64,10 +64,7 @@ public class DatabaseInitializer {
                     """);
 
         } catch (SQLException e) {
-            throw new ConstraintViolationException(
-                    "Failed to initialize database",
-                    e
-            );
+            throw DatabaseExceptionMapper.map(e);
         }
     }
 }

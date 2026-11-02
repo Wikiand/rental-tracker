@@ -2,7 +2,6 @@ package com.kood.rentaltracker;
 
 import com.kood.rentaltracker.infrastructure.Database;
 import com.kood.rentaltracker.infrastructure.DatabaseInitializer;
-import com.kood.rentaltracker.repository.exception.ConstraintViolationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -87,7 +86,7 @@ class DatabaseInitializerTest {
     }
 
     @Test
-    void initializerMapsSqlFailureToConstraintViolation()
+    void initializerMapsSchemaFailureToGenericDatabaseException()
             throws Exception {
 
         database = Files.createTempFile(
@@ -114,10 +113,22 @@ class DatabaseInitializerTest {
             );
         }
 
-        assertThrows(
-                ConstraintViolationException.class,
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
                 DatabaseInitializer::initialize
         );
+
+        assertEquals(
+                RuntimeException.class,
+                exception.getClass()
+        );
+
+        assertEquals(
+                "Database error",
+                exception.getMessage()
+        );
+
+        assertNotNull(exception.getCause());
     }
 
 

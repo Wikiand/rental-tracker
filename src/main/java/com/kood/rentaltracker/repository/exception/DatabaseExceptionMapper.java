@@ -1,5 +1,8 @@
 package com.kood.rentaltracker.repository.exception;
 
+import org.sqlite.SQLiteErrorCode;
+import org.sqlite.SQLiteException;
+
 import java.sql.SQLException;
 
 public final class DatabaseExceptionMapper {
@@ -7,22 +10,26 @@ public final class DatabaseExceptionMapper {
     private DatabaseExceptionMapper() {
     }
 
-    public static RuntimeException map(SQLException e) {
+    public static RuntimeException map(SQLException exception) {
 
-        String message = e.getMessage() == null
-                ? ""
-                : e.getMessage().toLowerCase();
+        if (exception instanceof SQLiteException sqliteException) {
+            SQLiteErrorCode resultCode =
+                    sqliteException.getResultCode();
 
-        if (message.contains("unique")
-                || message.contains("not null")
-                || message.contains("check")
-                || message.contains("foreign key")) {
-            return new ConstraintViolationException(
-                    "Database constraint violation",
-                    e
-            );
+            if (resultCode != null
+                    && (resultCode.code & 0xFF)
+                    == SQLiteErrorCode.SQLITE_CONSTRAINT.code) {
+
+                return new ConstraintViolationException(
+                        "Database constraint violation",
+                        exception
+                );
+            }
         }
 
-        return new RuntimeException("Database error", e);
+        return new RuntimeException(
+                "Database error",
+                exception
+        );
     }
 }

@@ -15,7 +15,12 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MainIntegrationTest {
@@ -86,14 +91,6 @@ class MainIntegrationTest {
                 output.toString(
                         StandardCharsets.UTF_8
                 );
-
-        System.err.println(
-                "===== APP OUTPUT ====="
-        );
-        System.err.println(appOutput);
-        System.err.println(
-                "===== END APP OUTPUT ====="
-        );
 
         assertTrue(
                 appOutput.contains(
@@ -308,6 +305,140 @@ class MainIntegrationTest {
         assertTrue(
                 appOutput.contains(
                         "Username is already taken."
+                )
+        );
+    }
+
+
+    @Test
+    void userCanListItemSuccessfully() throws Exception {
+        createUser();
+
+        String input = """
+                2
+                testuser
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                5
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Item listed successfully."
+                )
+        );
+
+        try (
+                Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:sqlite:" + databaseFile
+                        );
+
+                PreparedStatement statement =
+                        connection.prepareStatement("""
+                                SELECT item_name, description, cost_per_day
+                                FROM listed_items
+                                WHERE item_name = ?
+                                """)
+        ) {
+            statement.setString(1, "Mountain Bike");
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(
+                        resultSet.next(),
+                        "The listed item should exist in the database."
+                );
+
+                assertEquals(
+                        "Mountain Bike",
+                        resultSet.getString("item_name")
+                );
+
+                assertEquals(
+                        "A well-maintained mountain bike",
+                        resultSet.getString("description")
+                );
+
+                assertEquals(
+                        500.0,
+                        resultSet.getDouble("cost_per_day"),
+                        0.001
+                );
+            }
+        }
+    }
+
+
+    @Test
+    void userCanViewListedItemInInventory() {
+        createUser();
+
+        String input = """
+                2
+                testuser
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                2
+                B
+                5
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "=== My inventory ==="
+                )
+        );
+
+        assertTrue(
+                appOutput.contains(
+                        "Mountain Bike - 500.00/day - AVAILABLE"
+                )
+        );
+    }
+
+
+    @Test
+    void userWithNoItemsSeesEmptyInventoryMessage() {
+        createUser();
+
+        String input = """
+                2
+                testuser
+                password123
+                2
+                5
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "Your inventory is empty."
                 )
         );
     }
