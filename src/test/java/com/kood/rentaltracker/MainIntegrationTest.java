@@ -443,7 +443,360 @@ class MainIntegrationTest {
         );
     }
 
+
+    @Test
+    void userSeesEmptyMarketplaceWhenNoOtherUsersHaveListings() {
+        createUser();
+
+        String input = """
+                2
+                testuser
+                password123
+                3
+                5
+                """;
+
+        runApplication(input);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "No available listings found."
+                )
+        );
+    }
+
+
+    @Test
+    void userCanBrowseAnotherUsersListing() {
+        createUser();
+        createUser("seller");
+
+        String sellerInput = """
+                2
+                seller
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                5
+                """;
+
+        runApplication(sellerInput);
+
+        output.reset();
+
+        String buyerInput = """
+                2
+                testuser
+                password123
+                3
+                B
+                5
+                """;
+
+        runApplication(buyerInput);
+
+        String appOutput =
+                output.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                appOutput.contains(
+                        "=== Browse listings ==="
+                )
+        );
+
+        assertTrue(
+                appOutput.contains(
+                        "Mountain Bike - 500.00/day"
+                )
+        );
+
+        assertTrue(
+                !appOutput.contains(
+                        "No available listings found."
+                )
+        );
+    }
+
+
+    @Test
+    void userCanRentAnotherUsersItemSuccessfully() throws Exception {
+        createUser();
+        createUser("seller");
+
+        runApplication("""
+                2
+                seller
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                5
+                """);
+
+        output.reset();
+
+        runApplication("""
+                2
+                testuser
+                password123
+                3
+                1
+                3
+                5
+                """);
+
+        String appOutput = output.toString(StandardCharsets.UTF_8);
+
+        assertTrue(appOutput.contains("Rental created successfully."));
+
+        try (
+                Connection connection = DriverManager.getConnection(
+                        "jdbc:sqlite:" + databaseFile
+                );
+                PreparedStatement rentalStatement = connection.prepareStatement(
+                        "SELECT status, renter_id FROM rentals"
+                );
+                PreparedStatement itemStatement = connection.prepareStatement(
+                        "SELECT status FROM listed_items WHERE item_name = ?"
+                )
+        ) {
+            try (ResultSet resultSet = rentalStatement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals("active", resultSet.getString("status"));
+                assertTrue(resultSet.getInt("renter_id") > 0);
+            }
+
+            itemStatement.setString(1, "Mountain Bike");
+
+            try (ResultSet resultSet = itemStatement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals("rented", resultSet.getString("status"));
+            }
+        }
+    }
+
+    @Test
+    void choosingZeroCancelsRentalWithoutChangingItemStatus() throws Exception {
+        createUser();
+        createUser("seller");
+
+        runApplication("""
+                2
+                seller
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                5
+                """);
+
+        output.reset();
+
+        runApplication("""
+                2
+                testuser
+                password123
+                3
+                1
+                0
+                B
+                5
+                """);
+
+        String appOutput = output.toString(StandardCharsets.UTF_8);
+
+        assertTrue(appOutput.contains("Enter 0 to go back."));
+        assertTrue(!appOutput.contains("Rental created successfully."));
+
+        try (
+                Connection connection = DriverManager.getConnection(
+                        "jdbc:sqlite:" + databaseFile
+                );
+                PreparedStatement rentalStatement = connection.prepareStatement(
+                        "SELECT COUNT(*) FROM rentals"
+                );
+                PreparedStatement itemStatement = connection.prepareStatement(
+                        "SELECT status FROM listed_items WHERE item_name = ?"
+                )
+        ) {
+            try (ResultSet resultSet = rentalStatement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(0, resultSet.getInt(1));
+            }
+
+            itemStatement.setString(1, "Mountain Bike");
+
+            try (ResultSet resultSet = itemStatement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals("available", resultSet.getString("status"));
+            }
+        }
+    }
+
+    @Test
+    void negativeRentalDurationIsRejected() {
+        createUser();
+        createUser("seller");
+
+        runApplication("""
+                2
+                seller
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                5
+                """);
+
+        output.reset();
+
+        runApplication("""
+                2
+                testuser
+                password123
+                3
+                1
+                -2
+                B
+                5
+                """);
+
+        String appOutput = output.toString(StandardCharsets.UTF_8);
+
+        assertTrue(
+                appOutput.contains(
+                        "Rental duration must be greater than zero."
+                )
+        );
+        assertTrue(!appOutput.contains("Rental created successfully."));
+    }
+
+    @Test
+    void nonNumericRentalDurationIsRejected() {
+        createUser();
+        createUser("seller");
+
+        runApplication("""
+                2
+                seller
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                5
+                """);
+
+        output.reset();
+
+        runApplication("""
+                2
+                testuser
+                password123
+                3
+                1
+                three
+                B
+                5
+                """);
+
+        String appOutput = output.toString(StandardCharsets.UTF_8);
+
+        assertTrue(
+                appOutput.contains(
+                        "Rental duration must be a whole number."
+                )
+        );
+        assertTrue(!appOutput.contains("Rental created successfully."));
+    }
+
+    @Test
+    void ownerCanConfirmReturnAndItemBecomesAvailableAgain() throws Exception {
+        createUser();
+        createUser("seller");
+
+        runApplication("""
+                2
+                seller
+                password123
+                1
+                Mountain Bike
+                A well-maintained mountain bike
+                500
+                5
+                """);
+
+        output.reset();
+
+        runApplication("""
+                2
+                testuser
+                password123
+                3
+                1
+                3
+                5
+                """);
+
+        output.reset();
+
+        runApplication("""
+                2
+                seller
+                password123
+                4
+                1
+                5
+                """);
+
+        String appOutput = output.toString(StandardCharsets.UTF_8);
+
+        assertTrue(appOutput.contains("=== Confirm a return ==="));
+        assertTrue(appOutput.contains("Return confirmed successfully."));
+
+        try (
+                Connection connection = DriverManager.getConnection(
+                        "jdbc:sqlite:" + databaseFile
+                );
+                PreparedStatement rentalStatement = connection.prepareStatement(
+                        "SELECT status, returned_at FROM rentals"
+                );
+                PreparedStatement itemStatement = connection.prepareStatement(
+                        "SELECT status FROM listed_items WHERE item_name = ?"
+                )
+        ) {
+            try (ResultSet resultSet = rentalStatement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals("closed", resultSet.getString("status"));
+                assertTrue(resultSet.getString("returned_at") != null);
+            }
+
+            itemStatement.setString(1, "Mountain Bike");
+
+            try (ResultSet resultSet = itemStatement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals("available", resultSet.getString("status"));
+            }
+        }
+    }
+
     private void createUser() {
+        createUser(USERNAME);
+    }
+
+    private void createUser(String username) {
         UserRepositoryImpl repository =
                 new UserRepositoryImpl();
 
@@ -456,7 +809,7 @@ class MainIntegrationTest {
         repository.save(
                 new User(
                         0,
-                        USERNAME
+                        username
                 ),
                 passwordHash
         );
